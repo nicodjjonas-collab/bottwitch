@@ -1,0 +1,380 @@
+{
+  "_comentario": "Toda la configuración del bot. Los cambios se aplican al reiniciar el bot.",
+  "prefix": "!",
+  "conversation": {
+    "enabled": true,
+    "mode": "llm",
+    "_mode": "local = plantillas y reglas (gratis, sin internet) | llm = IA de verdad siguiendo la conversacion",
+    "replyChance": 0.6,
+    "_replyChance": "probabilidad (0-1) de contestar a un mensaje normal del chat",
+    "esperaPorUsuarioSegundos": 15,
+    "_esperaPorUsuarioSegundos": "no responde dos veces seguidas a la misma persona antes de este tiempo, SALVO que siga un hilo abierto con ella (ver brain)",
+    "hiloAbiertoSegundos": 90,
+    "_hiloAbiertoSegundos": "si te acaba de responder y le contestas en este tiempo, sigue la conversacion contigo sin esperar",
+    "replyToQuestions": true,
+    "replyToMentions": true,
+    "greetOnJoin": true,
+    "minDelayMs": 1200,
+    "maxDelayMs": 4200,
+    "_delays": "retardo aleatorio antes de responder, para que no parezca un robot instantaneo",
+    "contextMessages": 25,
+    "_contextMessages": "cuantos mensajes recuerda para seguir la conversacion (hilos largos)",
+    "maxRepliesPerMinute": 6,
+    "onlyWhenChatActive": true,
+    "_onlyWhenChatActive": "si nadie ha escrito en X segundos, el bot se queda callado",
+    "chatActiveWindowSeconds": 120,
+    "maxReplyChars": 460,
+    "ignoreCommands": true
+  },
+  "llm": {
+    "_comentario": "Solo se usa si conversation.mode = 'llm'. La clave va en .env como LLM_API_KEY",
+    "provider": "groq",
+    "_provider": "groq | openai | deepseek | openrouter | ollama | gemini",
+    "baseUrl": "https://api.groq.com/openai/v1",
+    "model": "openai/gpt-oss-120b",
+    "models": [
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b"
+    ],
+    "_models": "se prueban en orden: si el primero da 429 (limite) o error del servidor, pasa al siguiente. Tienen cuota separada",
+    "maxPeticionesPorDia": 800,
+    "_maxPeticionesPorDia": "tope de seguridad para la capa gratuita de Groq (1.000 al dia). Al llegar, el bot sigue con el cerebro local sin cortarse",
+    "temperature": 0.85,
+    "maxTokens": 400,
+    "_maxTokens": "los modelos de razonamiento (gpt-oss) gastan tokens pensando: por debajo de ~300 se quedan sin contestar",
+    "reasoningEffort": "low",
+    "_reasoningEffort": "low | medium | high. En 'low' piensa menos, responde mas rápido y gasta menos cuota (ideal para chat)",
+    "timeoutMs": 10000,
+    "systemPrompt": "Eres el bot del canal de Twitch de jonasrdb, un DJ de música trance y electronica. Hablas en espanol, como un colega mas del chat: cercano, natural y con humor. SIGUE LA CONVERSACION COMO UN HUMANO: lee el historial y responde a lo que acaban de decir, no con un tema nuevo; si alguien te cuenta algo, reacciona a eso y hazle una pregunta de seguimiento corta; recuerda nombres y lo que dijo cada uno en este hilo; si te responden a ti, sigue con el mismo tema en vez de cambiarlo; nunca digas 'como IA' ni expliques que sigues instrucciones. Reglas: respuestas CORTAS (menos de 200 caracteres, esto es un chat); usa el nombre de la persona si lo sabes; no repitas ideas, saludos ni bromas que ya hayas dicho; no reveles que eres una IA salvo que te lo pregunten directamente; nada de politica, religion, insultos ni datos personales; no prometas nada en nombre del streamer ni te inventes datos del canal. IMPORTANTE: en Twitch no existen los 'likes', así que nunca digas 'dale like'; si quieres animar a alguien di que escriba en el chat, que siga el canal o que se suscriba. De vez en cuando (no en cada mensaje) anima a la gente a participar en el chat, y alguna vez menciona que seguir o suscribirse ayuda a que esto crezca, siempre sin insistir y sin sonar a anuncio. Puedes usar algun emoji suelto.",
+    "promptAmbiente": "Escribe UN solo mensaje corto (maximo 140 caracteres) para animar un chat de Twitch que lleva rato callado. Es el chat de jonasrdb, un DJ de música trance. El objetivo es que la gente escriba: haz una pregunta fácil y divertida relacionada con la música (que tema les marco, que están escuchando ahora, de donde te ves el directo...), o suelta un dato curioso del trance. No pidas follows ni suscripciones en este mensaje, y no digas que eres un bot. Responde SOLO con el mensaje, sin comillas ni prefijos.",
+    "presets": {
+      "groq": {
+        "baseUrl": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-120b"
+      },
+      "openai": {
+        "baseUrl": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini"
+      },
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat"
+      },
+      "openrouter": {
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "model": "meta-llama/llama-3.3-70b-instruct"
+      },
+      "ollama": {
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "model": "llama3.2"
+      },
+      "gemini": {
+        "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-2.0-flash"
+      }
+    }
+  },
+  "moderation": {
+    "enabled": true,
+    "action": "delete",
+    "_action": "que hacer con la primera infraccion: warn (avisar) | delete (borrar mensaje) | timeout | ban",
+    "timeoutSeconds": 300,
+    "notifyUser": true,
+    "_notifyUser": "avisa en el chat a quien ha incumplido (sin repetir la palabra)",
+    "notifyMods": false,
+    "deleteMessage": true,
+    "_deleteMessage": "borra el mensaje ofensivo del chat (necesita permisos de moderador)",
+    "ignoreMods": true,
+    "ignoreBroadcaster": true,
+    "ignoreVips": false,
+    "escalation": [
+      {
+        "warnings": 2,
+        "action": "timeout",
+        "seconds": 60
+      },
+      {
+        "warnings": 3,
+        "action": "timeout",
+        "seconds": 600
+      },
+      {
+        "warnings": 5,
+        "action": "ban"
+      }
+    ],
+    "_escalation": "a partir de X avisos acumulados, sube la accion",
+    "whitelist": [
+      "computadora",
+      "computador",
+      "disputa",
+      "disputar",
+      "reputacion",
+      "capullo de rosa",
+      "puntual",
+      "puntualidad",
+      "calculo",
+      "calculadora",
+      "espectaculo",
+      "articulo",
+      "vehiculo",
+      "particular",
+      "circulo",
+      "cono",
+      "conos",
+      "ano",
+      "años",
+      "tapa",
+      "hostia de la iglesia"
+    ],
+    "_whitelist": "palabras que contienen tacos por casualidad y NO deben marcarse",
+    "extraWords": [],
+    "_extraWords": "anade aquí tus propias palabras prohibidas",
+    "extraAllowed": [],
+    "useSpanishList": true,
+    "useEnglishList": true,
+    "useCustomFile": true,
+    "_customFile": "lee también src/moderation/palabras-custom.txt (una por linea)"
+  },
+  "promos": {
+    "enabled": true,
+    "followReminder": {
+      "enabled": true,
+      "everyMinutes": 20,
+      "onlyIfChatActiveSeconds": 300,
+      "_onlyIfChatActiveSeconds": "solo lo dice si alguien ha escrito en los ultimos 5 minutos",
+      "maxPerStream": 6,
+      "messages": [
+        "Si te está gustando el directo, dale a seguir 💜 es gratis y ayuda un montón al canal",
+        "Recuerda: seguir el canal es gratis y avisa cuando empiezo el directo 🔔",
+        "¿Te gusta el trance? Pues dale a seguir y no te pierdas el próximo set 🎧",
+        "Un followcito se agradece mucho, y si activas la campanita te aviso cuando empiece 💜"
+      ]
+    },
+    "welcomeFirstTime": {
+      "enabled": true,
+      "messages": [
+        "¡Bienvenido {usuario}! Primera vez por aquí, ponte cómodo 🎧",
+        "¡Hola {usuario}! Bienvenido al canal, si te gusta el rollo dale a seguir 💜",
+        "Epa {usuario} 👋 pasa y ponte cómodo, esto es trance del bueno"
+      ]
+    },
+    "thanksSub": {
+      "enabled": true,
+      "messages": [
+        "¡Gracias por la suscripción, {usuario}! Esto ayuda un montón 💜",
+        "{usuario} se ha suscrito, ¡muchísimas gracias! 🔥"
+      ]
+    },
+    "thanksRaid": {
+      "enabled": true,
+      "messages": [
+        "¡Gracias por la raid, {usuario}! Bienvenidos todos, poneos cómodos 🎧",
+        "¡Raid de {usuario}! Qué pasa gente, bienvenidos al set 🔥"
+      ]
+    },
+    "recordatorioAvatares": {
+      "enabled": true,
+      "everyMinutes": 15,
+      "_everyMinutes": "cada cuanto recuerda que existe el overlay de muñequitos",
+      "onlyIfChatActiveSeconds": 300,
+      "_onlyIfChatActiveSeconds": "solo lo dice si alguien ha escrito en los ultimos 5 minutos",
+      "maxPerStream": 12,
+      "_maxPerStream": "como maximo 12 veces por directo para que roten todos los comandos",
+      "minutoInicial": 3,
+      "_minutoInicial": "el primero sale a los 3 minutos, para no pisar el recordatorio de follow",
+      "messages": [
+        "🎮 Tu muñequito del overlay: elige disfraz con !skin (hay 56: pirata, ciber, nieve, ninja...) y mira lo que sabe hacer con !acciones",
+        "🎮 Baila con la música: !baila (o !bailar) pone a tu muñeco a bailar al ritmo · !fiesta hace bailar a TODOS con confeti",
+        "🎮 Tu muñeco hace de todo: !salta · !giro · !rabia · !dormir · !sentar · !grande · !peque · !emoji 🔥 · !dado · !baila",
+        "🎮 Juega con otros: !abrazar @alguien · !duelo @alguien (piedra-papel-tijera) · !carrera (todos corren) · !lluvia (confeti)",
+        "🎮 Habla en el chat y tu muñequito sube de nivel: gorra (3), auriculares DJ (5), corona (10). Mira tu nivel con !avatar",
+        "🎮 !festero mide tus ganas de fiesta · !hype enciende el canal · !color azul cambia las luces del overlay · !flash destello",
+        "🎮 ¿Nuevo por aquí? Escribe algo y aparece tu muñeco · !skin dj para ir de DJ · !skin quitar para volver al normal",
+        "🎮 Lista completa del overlay: !acciones te la enseña por partes · !avatar tu nivel y skin · !skin + nombre del disfraz",
+        "🎮 Trucos: !grande te hace gigante 8 s · !peque en mini · !dormir con 💤 (cualquier mensaje te despierta) · !fiesta",
+        "🎮 Retos del overlay: reta con !duelo @alguien · corre con !carrera · monta la fiesta con !fiesta (cada 4 min)"
+      ]
+    },
+    "idleChatter": {
+      "enabled": true,
+      "_idleChatter": "el bot anima el chat cuando lleva un rato callado, para que la gente escriba",
+      "usarIA": true,
+      "_usarIA": "true = el mensaje lo escribe la IA (solo si conversation.mode = llm y hay clave) | false = usa la lista de abajo",
+      "everyMinutes": 3,
+      "_everyMinutes": "cada cuanto MIRA si el chat esta parado (no cada cuanto habla)",
+      "minutosSinHablar": 7,
+      "_minutosSinHablar": "solo habla si nadie ha escrito en estos minutos",
+      "minutosEntreMensajes": 10,
+      "_minutosEntreMensajes": "separacion minima entre dos mensajes de ambiente",
+      "maxPerStream": 14,
+      "_maxPerStream": "tope por directo, para no cansar",
+      "messages": [
+        "El chat está muy tranquilo... ¿alguien tiene una recomendación de track?",
+        "¿Qué tal va la noche? Contadme algo mientras suena el set 🎶",
+        "Veo mucho silencio... ¿de dónde nos escucháis hoy?",
+        "¿Qué tema os ha enganchado esta semana? Necesito ideas para el próximo set 🎧",
+        "Pregunta tonta: ¿playa o after? Que hoy me inspira 🎶"
+      ]
+    },
+    "recordatorioJuegos": {
+      "enabled": true,
+      "everyMinutes": 18,
+      "_everyMinutes": "cada cuanto recuerda que hay juegos y como se juega",
+      "minutoInicial": 5,
+      "onlyIfChatActiveSeconds": 300,
+      "maxPerStream": 12,
+      "_maxPerStream": "tope por directo: 12 para que roten todos los comandos sin dar la brasa",
+      "messages": [
+        "🎮 ¡Hay 17 juegos en el canal! Escribe !juegos para verlos. Fáciles: !trivia · !ahorcado · !dados · !ppt · !adivina",
+        "🎵 Juegos de música: !musicquiz · !tema (adivina la canción) · !decada · !anyo · !frase · !bingo · !anagrama",
+        "🎧 Pide temas: !sr <canción> para la cola · !cola para verla · !bpm 128 para apostar los BPM · !juegos",
+        "🎰 Puntos: ganas jugando (!puntos para ver los tuyos · !top ranking) · !ruleta 50 (hasta x10) · !subasta (el ganador elige tema)",
+        "🎱 Más juegos: !tresenraya · !sorteo · !8ball <pregunta> · !dado · !so @alguien para dar bola a otro canal",
+        "🎮 Cancela con !cancelar · estado con !estado · ayuda con !ayuda · !puntos @alguien · !dados",
+        "💜 Apoya: !seguir y la suscripción (sin anuncios + emotes). Activa la campanita 🔔 · !hype",
+        "🎮 Tu muñeco baila al ritmo: !baila · todos con !fiesta · mide tu fiesta con !festero · !color azul cambia las luces",
+        "🎮 Disfraces: !skin pirata (hay 56: caballero, ninja, ciber, nova...) · !skin para aleatorio · !avatar tu nivel · !acciones la lista del overlay",
+        "🎵 Conviértete en jurado: apuesta !bpm y cuando el streamer ponga !bpmfin el que más se acerque gana 25 puntos · !trivia",
+        "🏆 !subasta: puja con tus puntos y el que más ponga elige el PRÓXIMO TEMA del set 🎧",
+        "🔥 Extra: !hype enciende el canal · !flash destello · !lluvia confeti · !duelo @alguien · !carrera"
+      ]
+    },
+    "recordatorioSubs": {
+      "enabled": true,
+      "_recordatorioSubs": "empujoncito para crecer: recuerda que se puede suscribir",
+      "everyMinutes": 30,
+      "minutoInicial": 8,
+      "_minutoInicial": "el primero sale a los 8 minutos de arrancar",
+      "onlyIfChatActiveSeconds": 300,
+      "_onlyIfChatActiveSeconds": "solo si alguien ha escrito en los ultimos 5 minutos",
+      "maxPerStream": 5,
+      "messages": [
+        "💜 Suscribirte al canal ayuda un montón a que esto siga creciendo: emotes del canal, sin anuncios y el badge de sub",
+        "Si te mola el rollo, la suscripción es la mejor forma de apoyar el canal: se quitan los anuncios y tenéis los emotes del directo 🎧",
+        "Recordad que suscribirse ayuda de verdad al canal y además os quita los anuncios 💜 ¡gracias a los que estáis dentro!",
+        "Cada suscripción se nota y ayuda a que pueda seguir haciendo estos sets. Dale al botón de suscribirse si te apetece apoyar 💜"
+      ]
+    }
+  },
+  "games": {
+    "enabled": true,
+    "defaultCooldownSeconds": 45,
+    "_defaultCooldownSeconds": "espera minima entre partidas del mismo juego",
+    "oneGameAtATime": true,
+    "inactivitySeconds": 180,
+    "_inactivitySeconds": "si nadie interactua en este tiempo, la partida se cancela sola",
+    "announceInactivityWarning": true,
+    "disabled": [],
+    "_disabled": "pon aquí los id de los juegos que NO quieras, ej: [\"sorteo\"]",
+    "points": {
+      "win": 10,
+      "participate": 2,
+      "hangmanWord": 15
+    }
+  },
+  "economy": {
+    "enabled": true,
+    "startPoints": 0
+  },
+  "songrequests": {
+    "enabled": true,
+    "max": 20,
+    "_max": "cuantas peticiones caben en la cola",
+    "esperaSegundos": 90,
+    "_esperaSegundos": "espera por persona entre peticiones",
+    "permitirEnlaces": false,
+    "largoMaximo": 70
+  },
+  "bpm": {
+    "enabled": true,
+    "min": 60,
+    "max": 200,
+    "borrarMensaje": true,
+    "_borrarMensaje": "borra el mensaje del streamer al fijar el BPM, para que el chat no vea la respuesta",
+    "puntosGanador": 25,
+    "puntosCerca": 8
+  },
+  "festero": {
+    "enabled": true,
+    "esperaSegundos": 12,
+    "_esperaSegundos": "espera por persona para volver a medirse las ganas de fiesta",
+    "bonoPorActividad": true
+  },
+  "horario": {
+    "_comentario": "Lo que dice !horario en el chat y lo que muestra el panel de horario en OBS",
+    "dias": ["viernes", "sábado"],
+    "hora": "22:00",
+    "_hora": "hora española, formato 24h",
+    "texto": "Remember Dance Club 🎧"
+  },
+  "panel": {
+    "_comentario": "Panel web: cada dueño configura su canal. Sin TWITCH_CLIENT_SECRET abre en modo local",
+    "enabled": true,
+    "port": 8099
+  },
+  "comercial": {
+    "_comentario": "Ventas: exigirLicencia=false = todo abierto (ahora). Ponlo true cuando cobres; kofi = tu enlace de pago",
+    "exigirLicencia": false,
+    "kofi": ""
+  },
+  "commands": {
+    "points": [
+      "puntos",
+      "points",
+      "monedas"
+    ],
+    "top": [
+      "top",
+      "ranking",
+      "clasificacion"
+    ],
+    "help": [
+      "ayuda",
+      "help",
+      "comandos"
+    ],
+    "status": [
+      "estado",
+      "status"
+    ],
+    "games": [
+      "juegos",
+      "jugar",
+      "games"
+    ],
+    "cancelGame": [
+      "cancelar",
+      "parar",
+      "stop"
+    ],
+    "join": [
+      "entrar",
+      "join",
+      "entro",
+      "apunto"
+    ],
+    "bot": [
+      "bot",
+      "info"
+    ],
+    "follow": [
+      "seguir",
+      "follow"
+    ]
+  },
+  "chat": {
+    "maxMessageChars": 480,
+    "minMsBetweenMessages": 1100,
+    "_minMsBetweenMessages": "espacio minimo entre mensajes del bot (evita el spam y las desconexiones de Twitch)",
+    "messagesPer30s": 18,
+    "_messagesPer30s": "Twitch permite 20 cada 30 s; dejamos margen",
+    "reconnectMaxSeconds": 60,
+    "logRawMessages": false
+  },
+  "advanced": {
+    "storeSaveDebounceMs": 4000,
+    "statsFile": "src/data/stats.json",
+    "memoryFile": "src/data/memoria.json"
+  }
+}

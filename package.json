@@ -1,0 +1,25 @@
+{
+  "name": "twitch-chatbot-rdb",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bot de chat para Twitch: conversacion natural, juegos, recordatorios de follow y moderacion automatica. Cero dependencias externas.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "auth": "node src/auth.js",
+    "test": "node src/selftest.js",
+    "estado": "node --env-file-if-exists=.env src/index.js --dry-run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "twitch",
+    "bot",
+    "chat",
+    "juegos",
+    "moderacion"
+  ],
+  "license": "MIT"
+}

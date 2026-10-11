@@ -1,0 +1,107 @@
+# =====================================================================
+#  PALABRAS PROHIBIDAS - INGLES
+#  Una palabra (o expresion) por linea. Las lineas con # se ignoran.
+#  Comparacion por palabra completa + deteccion de evasiones (sh1t, s.h.i.t).
+# =====================================================================
+
+# --- profanity ---
+fuck
+fucks
+fucked
+fucking
+fucker
+fuckers
+motherfucker
+motherfuckers
+shit
+shits
+shitty
+bullshit
+bitch
+bitches
+son of a bitch
+bastard
+bastards
+asshole
+assholes
+dick
+dicks
+dickhead
+cock
+cocks
+cunt
+cunts
+pussy
+pussies
+whore
+whores
+slut
+sluts
+skank
+twat
+wanker
+wankers
+prick
+bollocks
+arsehole
+bugger
+goddamn
+pissed
+piss off
+jackass
+dumbass
+dipshit
+
+# --- slurs (tolerancia cero) ---
+nigger
+niggers
+nigga
+niggas
+faggot
+faggots
+retard
+retards
+spastic
+chink
+kike
+spic
+wetback
+tranny
+coon
+gook
+raghead
+towelhead
+
+# --- contenido sexual ---
+porn
+porno
+pornography
+blowjob
+handjob
+cumming
+jerk off
+jack off
+hentai
+send nudes
+
+# --- amenazas y autolesion ---
+kill yourself
+i will kill you
+hope you die
+you should die
+go die
+drink bleach
+hang yourself
+
+# --- spam y estafas ---
+free followers
+buy followers
+cheap viewers
+buy viewers
+free bits
+crypto giveaway
+double your crypto
+investment opportunity
+onlyfans
+sell account
+hack account

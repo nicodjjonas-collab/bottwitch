@@ -1,0 +1,15 @@
+Hola 👋 Te monto el bot de Twitch en tu canal (chat que conversa, juegos,
+peticiones de música, puntos, moderación y muñequitos en pantalla).
+
+Pásame esto:
+1. Tu canal de Twitch (sin @): __________
+2. La cuenta que usará como bot (créala aparte si quieres, ej: MiCanalBot): __________
+3. Plan: BÁSICO / FULL
+
+Y haz esto (2 min):
+a) Te mando un código → mételo en https://www.twitch.tv/activate
+   iniciando sesión con la CUENTA DEL BOT (no con la tuya).
+b) En tu chat escribe: /mod NombreDelBot
+c) Escribe !ayuda en tu chat para probar.
+
+Sin el /mod podrá hablar y jugar pero no borrar mensajes. ¡Listo! 🎧

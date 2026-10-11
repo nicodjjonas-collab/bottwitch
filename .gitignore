@@ -1,0 +1,9 @@
+node_modules/
+.env
+config/canales.json
+config/licencias.json
+src/data/
+logs/
+datos*/
+*.log
+TwitchBot-*.zip

@@ -1,0 +1,205 @@
+# =====================================================================
+#  PALABRAS PROHIBIDAS - ESPANOL
+#  Una palabra (o expresion) por linea. Las lineas con # se ignoran.
+#  La comparacion es por PALABRA COMPLETA, asi que "computadora" NO
+#  activa "puta". Tambien detecta evasiones: P4TA, p.u.t.a, puuuta.
+#  Este archivo es tuyo: anade o quita lo que quieras.
+# =====================================================================
+
+# --- tacos e insultos fuertes ---
+puta
+puto
+putas
+putos
+putita
+putito
+hijueputa
+hijueputas
+hijoputa
+hijoputas
+malparido
+malparida
+gonorrea
+
+# --- expresiones de varias palabras ---
+hijo de puta
+hija de puta
+hijos de puta
+a la mierda
+vete a la mierda
+que te jodan
+vete a tomar por culo
+
+# --- escatologia y sexo ---
+mierda
+mierdas
+mierdero
+cagada
+cagadas
+cagon
+cagona
+cagate
+culo
+culos
+culiao
+culiada
+ojete
+polla
+pollas
+verga
+vergudo
+pija
+pijudo
+pene
+vagina
+chocho
+tetas
+tetona
+mamada
+mamadas
+pajero
+pajera
+pajear
+follar
+follando
+follada
+folleteo
+cogida
+corrida
+orgia
+porno
+pornografia
+
+# --- tacos de Espana muy comunes ---
+joder
+jodete
+jodido
+jodida
+jodan
+hostia
+hostias
+cojones
+cojonazo
+chupala
+mamala
+capullo
+capulla
+gilipuertas
+
+# --- insultos de Latinoamerica ---
+pendejo
+pendeja
+pendejos
+pendejas
+boludo
+boluda
+boludos
+huevon
+huevona
+guevon
+mamaguevo
+mamahuevo
+carechimba
+careverga
+chinga
+chingatumadre
+tarado
+tarada
+menso
+mensa
+pajuo
+pajua
+zopenco
+zoquete
+
+# --- insultos ---
+cabron
+cabrona
+cabrones
+cabronazo
+gilipollas
+gilipolla
+imbecil
+imbeciles
+estupido
+estupida
+subnormal
+subnormales
+retrasado
+retrasada
+mongolo
+mongola
+maricon
+mariconazo
+marica
+maricona
+mariquita
+bollera
+tortillera
+travelo
+zorra
+zorron
+guarra
+guarro
+cerda
+perra
+chupapollas
+chupapollas
+comepollas
+mierdecilla
+escoria
+basura humana
+apestoso
+apestosa
+asqueroso
+asquerosa
+gordo de mierda
+feo de mierda
+enano
+enana
+
+# --- racismo y discriminacion (tolerancia cero) ---
+negrata
+negrero
+sudaca
+panchito
+moraco
+retrasado mental
+deficiente mental
+sidoso
+sidosa
+canceroso
+chink
+nigger
+nigga
+faggot
+kike
+spic
+wetback
+tranny
+coon
+gook
+raghead
+towelhead
+
+# --- amenazas y violencia ---
+te voy a matar
+te voy a pegar
+ojala te mueras
+muerete
+suicidate
+te voy a encontrar
+se donde vives
+
+# --- spam y estafas tipicas ---
+vendo seguidores
+compro seguidores
+seguidores gratis
+gana dinero facil
+gana criptomonedas
+invierte en cripto
+onlyfans
+packs de fotos
+vendo cuentas
+hackeo cuentas
+te regalo bits
