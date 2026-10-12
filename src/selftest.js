@@ -13,7 +13,7 @@ import { Brain } from './brain/index.js';
 import { GameManager } from './games/index.js';
 import { crearModerador } from './moderation.js';
 import { crearComandos } from './commands.js';
-import { crearPromos } from './promos.js';
+import { crearPromos, sanearAlertas, MAX_ALERTAS } from './promos.js';
 import { crearPipeline } from './pipeline.js';
 import { crearLLM } from './brain/llm.js';
 
@@ -328,6 +328,54 @@ async function principal() {
   promos.recordatorioAvatares();
   comprobar('Con !promos off no dice nada', chat.dichos.length === 0, `${chat.dichos.length} mensaje(s)`);
   runtime.promosActivas = true;
+
+  // ---- 9b) alertas personalizadas (hasta 50, desde el panel) ----
+  console.log(`\n${C.b}9b) Alertas personalizadas${C.x}`);
+  comprobar('Tope de 50 alertas', MAX_ALERTAS === 50, String(MAX_ALERTAS));
+  const muchas = Array.from({ length: 55 }, (_, i) => ({ id: `a${i}`, messages: [`m${i}`] }));
+  comprobar('Se recortan a 50', sanearAlertas(muchas).length === 50, `${sanearAlertas(muchas).length}`);
+  comprobar('Sin lista no hay alertas', sanearAlertas(null).length === 0 && sanearAlertas('hola').length === 0);
+  const sucias = [
+    { id: 'ok', nombre: '  Redes  ', messages: ['  hola chat  '] },
+    null, 'texto', 42,
+    { id: 'vacia', messages: [] }, { id: 'blancos', messages: ['   '] },
+    { id: 'dup', messages: ['uno'] }, { id: 'dup', messages: ['dos'] },
+    { id: 'larga', messages: ['x'.repeat(500)] },
+    { id: 'tiempos', messages: ['t'], everyMinutes: 0, minutoInicial: -3, maxPerStream: -1, onlyIfChatActiveSeconds: 999999 },
+    { id: 'apagada', messages: ['z'], enabled: false },
+  ];
+  const limpias = sanearAlertas(sucias);
+  comprobar('Se queda lo válido y se tira la basura', limpias.length === 5, limpias.map((a) => a.id).join(','));
+  const ok1 = limpias.find((a) => a.id === 'ok');
+  comprobar('Recorta espacios del nombre y mensajes', ok1.nombre === 'Redes' && ok1.messages[0] === 'hola chat');
+  comprobar('Sin id duplicados', limpias.filter((a) => a.id === 'dup').length === 1);
+  const larga = limpias.find((a) => a.id === 'larga');
+  comprobar('Mensajes capados a 480 caracteres', larga.messages[0].length === 480 && larga.messages[0].endsWith('…'));
+  const tiempos = limpias.find((a) => a.id === 'tiempos');
+  comprobar('Tiempos acotados', tiempos.everyMinutes === 1 && tiempos.minutoInicial === 0 && tiempos.maxPerStream === 0 && tiempos.onlyIfChatActiveSeconds === 86400, JSON.stringify({ cada: tiempos.everyMinutes, ini: tiempos.minutoInicial, tope: tiempos.maxPerStream }));
+  comprobar('Valores por defecto sanos', ok1.everyMinutes === 20 && ok1.minutoInicial === 5 && ok1.maxPerStream === 0 && ok1.enabled === true);
+
+  const chatAl = chatFalso();
+  const cfgAl = { promos: { alertas: [{ id: 't1', nombre: 'Test', messages: ['aviso!'], everyMinutes: 20, minutoInicial: 5, onlyIfChatActiveSeconds: 300, maxPerStream: 1 }] } };
+  const pAl = crearPromos({ config: cfgAl, chat: chatAl, runtime: { promosActivas: true }, ultimaActividad: () => Date.now() });
+  comprobar('Dispara la alerta', pAl.dispararAlerta({ id: 't1', nombre: 'Test', messages: ['aviso!'], everyMinutes: 20, onlyIfChatActiveSeconds: 300 }) === true && chatAl.último() === 'aviso!');
+  comprobar('Respeta el tope por directo', pAl.dispararAlerta({ id: 't1', nombre: 'Test', messages: ['aviso!'], maxPerStream: 1 }) === false && chatAl.dichos.length === 1, `${chatAl.dichos.length} mensaje(s)`);
+  comprobar('Probar no gasta el cupo', pAl.dispararAlertaPorId('t1').ok === true && pAl.dispararAlertaPorId('t1').ok === true);
+  comprobar('Desactivada no habla', pAl.dispararAlerta({ id: 't2', messages: ['x'], enabled: false }) === false);
+  comprobar('Id desconocido avisa', pAl.dispararAlertaPorId('xxx').ok === false);
+  const chatParado = chatFalso();
+  const pParado = crearPromos({ config: cfgAl, chat: chatParado, runtime: { promosActivas: true }, ultimaActividad: () => 0 });
+  comprobar('Con chat parado no habla', pParado.dispararAlerta({ id: 't1', messages: ['aviso!'], onlyIfChatActiveSeconds: 300 }) === false && chatParado.dichos.length === 0);
+  const chatOff = chatFalso();
+  const pOff = crearPromos({ config: cfgAl, chat: chatOff, runtime: { promosActivas: false }, ultimaActividad: () => Date.now() });
+  comprobar('Con promos apagadas no habla', pOff.dispararAlerta({ id: 't1', messages: ['aviso!'] }) === false);
+  comprobar('Lista lo programado', pAl.listaAlertas().length === 1 && pAl.listaAlertas()[0].id === 't1');
+  cfgAl.promos.alertas.push({ id: 't2', messages: ['segunda'] });
+  comprobar('Recargar reprograma en caliente', pAl.recargarAlertas() === 2, `${pAl.recargarAlertas()} (llamada extra no duplica envíos)`);
+  const pVacia = crearPromos({ config: { promos: {} }, chat: chatFalso(), runtime: { promosActivas: true }, ultimaActividad: () => Date.now() });
+  pVacia.iniciar();
+  pVacia.detener();
+  comprobar('Sin alertas arranca y para sin romperse', true);
 
   // ---- 10) lector de IRC (esto es lo que habla con Twitch) ----
   console.log(`\n${C.b}10) Lector de IRC de Twitch${C.x}`);

@@ -8,6 +8,46 @@ import { logger } from './logger.js';
 
 const AZAR = (arr) => (Array.isArray(arr) && arr.length ? arr[Math.floor(Math.random() * arr.length)] : '');
 
+// ---- alertas personalizadas (hasta 50 por canal, desde el panel) ----
+export const MAX_ALERTAS = 50;
+
+// Limpia una lista de alertas venida del panel o del archivo.
+// Siempre devuelve array válido (como mucho MAX_ALERTAS), sin tirar errores.
+export function sanearAlertas(lista) {
+  if (!Array.isArray(lista)) return [];
+  const limpias = [];
+  const vistos = new Set();
+  for (const a of lista) {
+    if (limpias.length >= MAX_ALERTAS) break;
+    if (!a || typeof a !== 'object') continue;
+    const id = String(a.id || '').trim().slice(0, 40) || `a${limpias.length + 1}`;
+    if (vistos.has(id)) continue;
+    vistos.add(id);
+    const messages = (Array.isArray(a.messages) ? a.messages : [a.messages])
+      .map((m) => String(m ?? '').replace(/\s+/g, ' ').trim())
+      .filter((m) => m.length > 0)
+      .map((m) => (m.length > 480 ? m.slice(0, 479) + '…' : m))
+      .slice(0, 20);
+    if (!messages.length) continue;
+    const num = (v, def, min, max) => {
+      const n = Number(v);
+      if (!isFinite(n)) return def;
+      return Math.min(max, Math.max(min, Math.round(n)));
+    };
+    limpias.push({
+      id,
+      nombre: String(a.nombre || id).replace(/\s+/g, ' ').trim().slice(0, 60) || id,
+      enabled: a.enabled !== false,
+      messages,
+      everyMinutes: num(a.everyMinutes, 20, 1, 1440),
+      minutoInicial: num(a.minutoInicial ?? 5, 5, 0, 1440),
+      onlyIfChatActiveSeconds: num(a.onlyIfChatActiveSeconds ?? 300, 300, 0, 86400),
+      maxPerStream: num(a.maxPerStream ?? 0, 0, 0, 100000),
+    });
+  }
+  return limpias;
+}
+
 export function crearPromos({ config, chat, runtime, ultimaActividad, brain = null, estaEnDirecto = null, log = logger }) {
   const cfg = config.promos || {};
   const temporizadores = [];
@@ -94,6 +134,74 @@ export function crearPromos({ config, chat, runtime, ultimaActividad, brain = nu
     contadorSubs += 1;
     chat.say(plantilla(AZAR(r.messages), null));
     log.info(`Recordatorio de suscripción enviado (${contadorSubs}${r.maxPerStream ? `/${r.maxPerStream}` : ''}).`);
+  }
+
+  // ---- alertas personalizadas: cada una habla sola cada X minutos ----
+  const contadoresAlertas = new Map();   // id -> enviados en este directo
+  let temporizadoresAlertas = [];        // para recargar sin reiniciar todo
+  function dispararAlerta(al) {
+    if (!activas() || !al || al.enabled === false) return false;
+    const id = al.id;
+    const hechos = contadoresAlertas.get(id) || 0;
+    if (al.maxPerStream && hechos >= al.maxPerStream) return false;
+    const ventana = (al.onlyIfChatActiveSeconds ?? 300) * 1000;
+    if (Date.now() - (ultimaActividad?.() || 0) > ventana) {
+      log.debug(`Alerta "${al.nombre || id}" omitida: el chat esta parado.`);
+      return false;
+    }
+    const texto = plantilla(AZAR(al.messages), null);
+    if (!texto) return false;
+    contadoresAlertas.set(id, hechos + 1);
+    chat.say(texto);
+    log.info(`Alerta "${al.nombre || id}" enviada (${hechos + 1}${al.maxPerStream ? `/${al.maxPerStream}` : ''}).`);
+    return true;
+  }
+  function programarAlerta(al) {
+    const cada = (al.everyMinutes ?? 20) * 60 * 1000;
+    const primero = (al.minutoInicial ?? 5) * 60 * 1000;
+    const t0 = setTimeout(() => {
+      dispararAlerta(al);
+      const t1 = setInterval(() => dispararAlerta(al), cada);
+      temporizadores.push(t1);
+      temporizadoresAlertas.push(t1);
+    }, primero);
+    temporizadores.push(t0);
+    temporizadoresAlertas.push(t0);
+  }
+  function listaAlertas() {
+    return sanearAlertas(cfg.alertas);
+  }
+  function iniciarAlertas() {
+    for (const al of listaAlertas()) programarAlerta(al);
+    if (listaAlertas().length) log.info(`Alertas personalizadas: ${listaAlertas().length} programada(s).`);
+  }
+  // Relee la lista (tras guardar desde el panel) sin tocar el resto.
+  // Devuelve cuántas quedan programadas.
+  function recargarAlertas() {
+    for (const t of temporizadoresAlertas) { try { clearInterval(t); clearTimeout(t); } catch {} }
+    const fuera = new Set(temporizadoresAlertas);
+    for (let i = temporizadores.length - 1; i >= 0; i--) {
+      if (fuera.has(temporizadores[i])) temporizadores.splice(i, 1);
+    }
+    temporizadoresAlertas = [];
+    const vivas = new Map();
+    for (const al of listaAlertas()) {
+      if (contadoresAlertas.has(al.id)) vivas.set(al.id, contadoresAlertas.get(al.id));
+      programarAlerta(al);
+    }
+    contadoresAlertas.clear();
+    for (const [k, v] of vivas) contadoresAlertas.set(k, v);
+    return listaAlertas().length;
+  }
+  // Envío manual desde el botón Probar del panel: no gasta el cupo por directo.
+  function dispararAlertaPorId(id) {
+    const al = listaAlertas().find((x) => x.id === String(id));
+    if (!al) return { ok: false, motivo: 'no existe' };
+    const antes = contadoresAlertas.get(al.id) || 0;
+    const forzado = { ...al, maxPerStream: 0, onlyIfChatActiveSeconds: 86400 };
+    const ok = dispararAlerta(forzado);
+    contadoresAlertas.set(al.id, antes);
+    return { ok, id };
   }
 
   // ---- ambiente: anima el chat cuando lleva un rato callado ----
@@ -222,6 +330,9 @@ export function crearPromos({ config, chat, runtime, ultimaActividad, brain = nu
       temporizadores.push(setInterval(recordatorioSubs, minSubs * 60 * 1000));
       log.info(`Recordatorio de suscripción: cada ${minSubs} min (el primero en ${Math.round(inicial / 60000)} min).`);
     }
+
+    // Alertas personalizadas del panel (hasta 50 por canal)
+    iniciarAlertas();
   }
 
   function detener() {
@@ -244,5 +355,9 @@ export function crearPromos({ config, chat, runtime, ultimaActividad, brain = nu
     get contadorAvatares() { return contadorAvatares; },
     get contadorSubs() { return contadorSubs; },
     get contadorAmbiente() { return contadorAmbiente; },
+    listaAlertas,
+    recargarAlertas,
+    dispararAlerta,
+    dispararAlertaPorId,
   };
 }

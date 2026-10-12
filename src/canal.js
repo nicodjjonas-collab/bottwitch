@@ -151,6 +151,7 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
     chat,
     brain,
     juegos,
+    promos,
     moderador,
     totalJuegos,
     // Aplica ajustes del panel en caliente (casi todo; plan/ids piden reinicio)
@@ -163,6 +164,11 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
       if (isFinite(Number(f.conversation.replyChance))) brain.cfg.replyChance = Number(f.conversation.replyChance);
       // promos (se leen vivas del mismo objeto)
       Object.assign(config.promos, f.promos || {});
+      // alertas personalizadas: reprogramar sin reiniciar cuando cambian
+      let alertas = null;
+      if (nuevos && nuevos.promos && Object.hasOwn(nuevos.promos, 'alertas')) {
+        try { alertas = promos.recargarAlertas(); } catch {}
+      }
       // juegos on/off vive; la lista de desactivados pide reinicio
       const juegosAntes = JSON.stringify(config.games.disabled || []);
       runtime.juegosActivos = f.games.enabled !== false;
@@ -171,7 +177,7 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
       if (f.prefix) { config.prefix = f.prefix; try { brain.prefijo = f.prefix; } catch {} }
       const despues = JSON.stringify({ m: brain.cfg.mode, r: brain.cfg.replyChance });
       const reinicio = JSON.stringify(f.games?.disabled || []) !== juegosAntes;
-      return { ok: true, cambio: antes !== despues, reinicioNecesario: reinicio };
+      return { ok: true, cambio: antes !== despues, reinicioNecesario: reinicio, alertasProgramadas: alertas };
     },
     fijarBotId(id) { botId = id || botId; },
     tick() { try { juegos.tick(); } catch (e) { logger.error(`[${tag}] latido: ${e.message}`); } },

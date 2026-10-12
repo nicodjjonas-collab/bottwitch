@@ -218,6 +218,19 @@ export function guardarAjustes(RAIZ, channel, ajustes) {
   return c.ajustes;
 }
 
+// Ajustes guardados de un canal (para fusionar sin pisar ramas hermanas).
+export function leerAjustes(RAIZ, channel) {
+  try {
+    const archivo = path.join(RAIZ, 'config', 'canales.json');
+    if (!fs.existsSync(archivo)) return null;
+    const lista = JSON.parse(fs.readFileSync(archivo, 'utf8'));
+    const c = lista.find((x) => String(x.channel || '').toLowerCase() === String(channel).toLowerCase());
+    return (c && c.ajustes && typeof c.ajustes === 'object') ? c.ajustes : null;
+  } catch {
+    return null;
+  }
+}
+
 // Fusión profunda solo de las ramas que el panel permite tocar.
 const RAMAS = ['conversation', 'games', 'promos', 'songrequests', 'bpm', 'festero', 'economy', 'commands'];
 export function fusionarAjustes(configBase, ajustes) {

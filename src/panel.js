@@ -75,6 +75,19 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
       conversacion: m.brain?.cfg?.enabled !== false,
       juegos: m.totalJuegos,
       ajustes: (m.cfg?.ajustes) || {},
+      alertas: ((m.cfg?.ajustes?.promos?.alertas) || [])
+        .filter((a) => a && typeof a === 'object')
+        .slice(0, 50)
+        .map((a) => ({
+          id: String(a.id || ''),
+          nombre: String(a.nombre || a.id || ''),
+          enabled: a.enabled !== false,
+          everyMinutes: Number(a.everyMinutes) || 20,
+          minutoInicial: Number(a.minutoInicial ?? 5),
+          onlyIfChatActiveSeconds: Number(a.onlyIfChatActiveSeconds ?? 300),
+          maxPerStream: Number(a.maxPerStream ?? 0),
+          messages: Array.isArray(a.messages) ? a.messages.slice(0, 20) : [],
+        })),
       version: VERSION,
     }));
   }
@@ -166,12 +179,36 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
         const canal = String(datos.canal || '').toLowerCase();
         const m = canalesVisibles(login).find((x) => x.canal === canal);
         if (!m) return json({ error: 'canal no disponible' }, 403);
-        const { guardarAjustes } = await import('./canales.js');
+        const { guardarAjustes, leerAjustes } = await import('./canales.js');
+        const { sanearAlertas } = await import('./promos.js');
         const resto = { ...datos };
         delete resto.canal;
+        // Las alertas se sanean en servidor (máx 50, campos acotados) y la rama
+        // promos se fusiona con lo ya guardado para no pisar ajustes hermanos.
+        if (resto.promos && Object.hasOwn(resto.promos, 'alertas')) {
+          resto.promos = { ...resto.promos, alertas: sanearAlertas(resto.promos.alertas) };
+        }
+        try {
+          const previos = leerAjustes(RAIZ, canal) || {};
+          if (resto.promos && previos.promos && typeof previos.promos === 'object') {
+            resto.promos = { ...previos.promos, ...resto.promos };
+          }
+        } catch {}
         guardarAjustes(RAIZ, canal, resto);
+        try {
+          const guardados = leerAjustes(RAIZ, canal);
+          if (guardados && m.cfg) m.cfg.ajustes = guardados;
+        } catch {}
         const r = m.aplicarAjustes(resto);
         return json({ ok: true, ...r });
+      }
+      if (ruta === '/api/alertas/probar' && req.method === 'POST') {
+        const datos = await leerCuerpo(req);
+        const canal = String(datos.canal || '').toLowerCase();
+        const m = canalesVisibles(login).find((x) => x.canal === canal);
+        if (!m) return json({ error: 'canal no disponible' }, 403);
+        if (!m.promos?.dispararAlertaPorId) return json({ error: 'sin motor de alertas' }, 501);
+        return json(m.promos.dispararAlertaPorId(datos.id));
       }
       if (ruta === '/api/reiniciar' && req.method === 'POST') {
         if (!esAdmin(req)) return json({ error: 'admin' }, 403);
@@ -298,6 +335,7 @@ button{background:#8ab4f8;border:0;border-radius:8px;padding:8px 16px;font-weigh
 button.ghost{background:#333;color:#eee}
 input[type=range]{width:140px}
 small{color:#999}
+input,textarea,select{background:#111;color:#eee;border:1px solid #444;border-radius:6px;padding:6px}
 #arriba{display:flex;justify-content:space-between;align-items:center;max-width:640px}
 </style></head><body>
 <div id="arriba"><h1>🤖 Mi panel <small id="ver"></small></h1><div><span id="yo"></span> <button class="ghost" onclick="location.href='/auth/twitch'" id="btnLogin">Entrar con Twitch</button> <button class="ghost" onclick="location.href='/auth/clave'" id="btnClave" style="display:none">Entrar con clave</button> <button class="ghost" onclick="location.href='/'">Web</button></div></div>
@@ -337,12 +375,127 @@ async function cargar(){
       + fila('Juegos','17 juegos del chat',chk(gam.enabled!==false),'x','games.enabled')
       + fila('Música (!sr, !bpm)','Peticiones y apuestas',chk(mus.enabled!==false),'x','songrequests.enabled')
       + fila('Recordatorios','Follow, avatares, juegos, subs',chk((pro.enabled!==false)),'x','promos.enabled')
+      + '<div data-al="1"><b>🔔 Alertas personalizadas (<span class=nal>0</span>/50)</b><br><small>Cada una habla sola cada X minutos (solo si el chat está vivo).</small><div class=lal></div><div class=eal></div><button onclick="nuevaAlerta(this)">+ Nueva alerta</button> <small class=mal></small></div>'
       + '<button onclick="guardar(this)">Guardar</button> <small class=msg></small></div>';
   }).join('')
   + '<div class=card><b>Bot</b><br><small>Guardar aplica al momento (casi todo). Para actualizar versión o planes: botón y PM2 lo levanta solo.</small><br><br><button class=ghost onclick="reiniciar()">Reiniciar bot</button> <small class=msg2></small></div>';
   d.querySelectorAll('input[type=range]').forEach((r) => {
     r.oninput = () => { r.parentElement.querySelector('.v').textContent = r.value + '%'; };
   });
+  initAlertasTodas(e.canales);
+}
+function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function numClamp(v, def, min, max){ const n = Number(v); if (!isFinite(n)) return def; return Math.min(max, Math.max(min, Math.round(n))); }
+function initAlertasTodas(canales){
+  const porCanal = {};
+  (canales || []).forEach((c) => { porCanal[c.canal] = (c.alertas || []).map((a) => ({ ...a, messages: [...(a.messages || [])] })); });
+  document.querySelectorAll('.card[data-canal]').forEach((card) => {
+    card._alertas = porCanal[card.dataset.canal] || [];
+    pintarAlertas(card);
+  });
+}
+function pintarAlertas(card){
+  const lista = card._alertas || [];
+  const box = card.querySelector('[data-al]');
+  if (!box) return;
+  box.querySelector('.nal').textContent = lista.length;
+  box.querySelector('.eal').innerHTML = '';
+  box.querySelector('.lal').innerHTML = lista.map((a, i) => {
+    const est = a.enabled !== false ? '●' : '○';
+    return '<div>[' + est + '] <b>' + esc(a.nombre || a.id) + '</b> <small>cada ' + (Number(a.everyMinutes) || 20) + ' min · ' + (a.messages || []).length + ' msg</small> '
+      + '<button class=ghost onclick="editarAlerta(this,' + i + ')">Editar</button>'
+      + '<button class=ghost onclick="probarAlerta(this,' + i + ')">Probar</button>'
+      + '<button class=ghost onclick="borrarAlerta(this,' + i + ')">Borrar</button></div>';
+  }).join('') || '<small>Sin alertas. Crea la primera con el botón de abajo.</small>';
+  box.querySelector('.mal').textContent = '';
+}
+function nuevaAlerta(btn){
+  const card = btn.closest('.card');
+  const lista = card._alertas || (card._alertas = []);
+  if (lista.length >= 50) { card.querySelector('[data-al] .mal').textContent = 'Máximo 50 alertas por canal.'; return; }
+  lista.push({ id: 'a' + Date.now().toString(36), nombre: 'Nueva alerta', enabled: true, messages: ['¡Hola!'], everyMinutes: 20, minutoInicial: 5, onlyIfChatActiveSeconds: 300, maxPerStream: 0, _nuevo: true });
+  pintarAlertas(card);
+  editarAlertaEn(card, lista.length - 1);
+}
+function editarAlerta(btn, i){ editarAlertaEn(btn.closest('.card'), i); }
+function editarAlertaEn(card, i){
+  const a = (card._alertas || [])[i];
+  if (!a) return;
+  card.querySelector('[data-al] .eal').innerHTML = '<div style="border:1px solid #444;border-radius:8px;padding:10px;margin:8px 0">'
+    + '<label>Nombre<br><input class=fa-nombre style="width:100%" maxlength=60 value="' + esc(a.nombre) + '"></label>'
+    + '<label>Mensajes (uno por línea, salen al azar)<br><textarea class=fa-msgs rows=3 style="width:100%">' + esc((a.messages || []).join('\n')) + '</textarea></label>'
+    + '<label>Cada (min, 1-1440) <input class=fa-cada type=number min=1 max=1440 value="' + (Number(a.everyMinutes) || 20) + '" style="width:80px"></label> '
+    + '<label>Primera en (min) <input class=fa-ini type=number min=0 max=1440 value="' + (a.minutoInicial ?? 5) + '" style="width:80px"></label><br>'
+    + '<label><input class=fa-act type=checkbox ' + (a.onlyIfChatActiveSeconds === 0 ? '' : 'checked') + '> Solo si el chat está vivo</label> '
+    + '<label>ventana (s) <input class=fa-actseg type=number min=0 max=86400 value="' + (a.onlyIfChatActiveSeconds ?? 300) + '" style="width:90px"></label><br>'
+    + '<label>Tope por directo (0 = sin tope) <input class=fa-max type=number min=0 max=100000 value="' + (a.maxPerStream ?? 0) + '" style="width:90px"></label> '
+    + '<label><input class=fa-on type=checkbox ' + (a.enabled !== false ? 'checked' : '') + '> Activada</label><br>'
+    + '<button onclick="guardarAlerta(this,' + i + ')">Guardar alerta</button> '
+    + '<button class=ghost onclick="cancelarEdicion(this,' + i + ')">Cancelar</button> <small class=fa-msg></small></div>';
+}
+function cancelarEdicion(btn, i){
+  const card = btn.closest('.card');
+  const lista = card._alertas || [];
+  if (lista[i] && lista[i]._nuevo) lista.splice(i, 1);
+  pintarAlertas(card);
+}
+function leerEditor(card, i){
+  const ed = card.querySelector('[data-al] .eal');
+  const a = (card._alertas || [])[i];
+  if (!a || !ed || !ed.innerHTML.trim()) return null;
+  const msgs = ed.querySelector('.fa-msgs').value.split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (!msgs.length) return { error: 'Pon al menos un mensaje.' };
+  a.nombre = ed.querySelector('.fa-nombre').value.trim().slice(0, 60) || a.id;
+  a.messages = msgs.slice(0, 20);
+  a.everyMinutes = numClamp(ed.querySelector('.fa-cada').value, 20, 1, 1440);
+  a.minutoInicial = numClamp(ed.querySelector('.fa-ini').value, 5, 0, 1440);
+  a.onlyIfChatActiveSeconds = ed.querySelector('.fa-act').checked ? numClamp(ed.querySelector('.fa-actseg').value, 300, 0, 86400) : 0;
+  a.maxPerStream = numClamp(ed.querySelector('.fa-max').value, 0, 0, 100000);
+  a.enabled = ed.querySelector('.fa-on').checked;
+  delete a._nuevo;
+  return { ok: true };
+}
+async function guardarAlerta(btn, i){
+  const card = btn.closest('.card');
+  const r = leerEditor(card, i);
+  const box = card.querySelector('[data-al] .eal .fa-msg');
+  if (!r) return;
+  if (r.error) { if (box) box.textContent = r.error; return; }
+  await enviarAlertas(card, 'Guardada ✅');
+}
+async function enviarAlertas(card, okMsg, silencio){
+  const canal = card.dataset.canal;
+  const r = await api('/api/ajustes', { canal, promos: { alertas: card._alertas || [] } });
+  const box = card.querySelector('[data-al] .mal');
+  if (r.ok) {
+    if (!silencio) {
+      box.textContent = okMsg + (r.alertasProgramadas != null ? ' (' + r.alertasProgramadas + ' programadas)' : '');
+      setTimeout(cargar, 1200);
+    }
+  } else if (!silencio) {
+    box.textContent = 'Error: ' + (r.error || '');
+  }
+  return r;
+}
+async function borrarAlerta(btn, i){
+  const card = btn.closest('.card');
+  if (!confirm('¿Borrar esta alerta?')) return;
+  (card._alertas || []).splice(i, 1);
+  await enviarAlertas(card, 'Borrada ✅');
+}
+async function probarAlerta(btn, i){
+  const card = btn.closest('.card');
+  const r = leerEditor(card, i);
+  if (r && r.error) {
+    const box = card.querySelector('[data-al] .eal .fa-msg');
+    if (box) box.textContent = r.error;
+    return;
+  }
+  await enviarAlertas(card, '', true);
+  const a = (card._alertas || [])[i];
+  const p = await api('/api/alertas/probar', { canal: card.dataset.canal, id: a && a.id });
+  card.querySelector('[data-al] .mal').textContent = p.ok ? 'Enviada al chat ✅' : ('No se pudo probar: ' + (p.motivo || p.error || ''));
+  pintarAlertas(card);
 }
 async function guardar(btn){
   const card = btn.closest('.card');

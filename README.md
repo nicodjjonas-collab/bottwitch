@@ -383,6 +383,14 @@ Están en `config.json` → `promos`. Hay **dos recordatorios periódicos** y am
 - Se apagan en caliente con `!promos off` (y se encienden con `!promos on`).
 - Mensajes de bienvenida, subs y raids: `welcomeFirstTime`, `thanksSub`, `thanksRaid`.
 
+### 🔔 Alertas personalizadas (hasta 50 por canal)
+
+Desde el panel (`Mi panel` → tu canal) puedes crear tus propias alertas: cada una
+tiene nombre, uno o varios mensajes (salen al azar), cada cuántos minutos habla,
+a los cuántos minutos del directo empieza, si exige chat vivo y tope por directo.
+Se guardan al momento y **empiezan a funcionar sin reiniciar**. Botones por alerta:
+**Editar**, **Probar** (la manda al chat sin gastar el cupo) y **Borrar**.
+
 ---
 
 ## Puntos y ranking
