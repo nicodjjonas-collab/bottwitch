@@ -31,12 +31,15 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
   const sesiones = new Map(); // token -> {login, id}
   const secret = (process.env.TWITCH_CLIENT_SECRET || '').trim();
   const clientId = (process.env.BOT_CLIENT_ID || '').trim();
+  // NUBE = Render u otro hosting (inyecta PORT). Ahí nada se deja abierto:
+  // sin secret no hay login posible, así que admin y ajustes quedan cerrados.
+  const NUBE = Boolean(process.env.PORT);
   // En la nube Render inyecta PORT (hay que escuchar en 0.0.0.0); en casa, localhost.
   const puerto = Number(process.env.PORT || config.panel?.port || 8099);
   const maquina = process.env.HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
 
   function canalesVisibles(login) {
-    if (!secret) return mundos;                       // modo local: todo
+    if (!secret) return NUBE ? [] : mundos;   // en casa: todo; en nube sin login: nada
     if (!login) return [];
     const propios = mundos.filter((m) => m.canal === String(login).toLowerCase());
     return propios.length ? propios : [];
@@ -49,7 +52,7 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
   }
 
   function esAdmin(req) {
-    if (!secret) return true;   // modo local: eres tú
+    if (!secret) return !NUBE;   // en casa eres tú; en nube sin login: nadie
     const s = sesionDe(req);
     if (!s) return false;
     const propio = mundos.find((m) => m.propio);
@@ -134,6 +137,7 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
         return json({ ok: true, ...r });
       }
       if (ruta === '/api/reiniciar' && req.method === 'POST') {
+        if (!esAdmin(req)) return json({ error: 'admin' }, 403);
         const datos = await leerCuerpo(req).catch(() => ({}));
         void datos;
         json({ ok: true, nota: 'Reiniciando (con PM2 vuelve solo)' });

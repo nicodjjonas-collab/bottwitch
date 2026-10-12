@@ -80,8 +80,6 @@ async function principal() {
     logger.error('No hay canales activos. Autoriza uno con:  npm run auth -- --canal=tu_canal');
     process.exit(1);
   }
-  bannerMulti(config, lista);
-
   bannerMulti(config, lista, (resolverFuente(lista, RAIZ).bot || '(por confirmar)'));
 
   const mundos = [];

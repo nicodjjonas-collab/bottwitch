@@ -116,8 +116,9 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
 
   // Carpeta de datos para OBS: la tuya sigue siendo C:\OBS-Media\datos;
   // los demás canales usan datos-<canal> (en la nube, dentro del proyecto).
+  // En Linux (Render) no existe C:\ : ahí todo va a datos-<canal>.
   const carpetaDatos = channelCfg.datos
-    || (channelCfg.propio && (config.advanced?.datosOBS || 'C:\\OBS-Media\\datos'))
+    || (channelCfg.propio && (config.advanced?.datosOBS || (process.platform === 'win32' ? 'C:\\OBS-Media\\datos' : path.join(RAIZ, 'datos', datosId))))
     || path.join(RAIZ, 'datos', datosId);
   const datosOBS = crearDatosOBS({ store, juegos, config, canal, carpeta: carpetaDatos, log: logger });
   datosOBS.iniciar();
