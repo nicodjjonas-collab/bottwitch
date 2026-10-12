@@ -31,6 +31,9 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
   const sesiones = new Map(); // token -> {login, id}
   const secret = (process.env.TWITCH_CLIENT_SECRET || '').trim();
   const clientId = (process.env.BOT_CLIENT_ID || '').trim();
+  // Clave de admin (plan B si Twitch no da el secret): con ADMIN_PASSWORD
+  // puesta, /auth/clave abre sesión de admin. Pon una larga y no la compartas.
+  const claveAdmin = (process.env.ADMIN_PASSWORD || '').trim();
   // NUBE = Render u otro hosting (inyecta PORT). Ahí nada se deja abierto:
   // sin secret no hay login posible, así que admin y ajustes quedan cerrados.
   const NUBE = Boolean(process.env.PORT);
@@ -52,8 +55,9 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
   }
 
   function esAdmin(req) {
-    if (!secret) return !NUBE;   // en casa eres tú; en nube sin login: nadie
     const s = sesionDe(req);
+    if (s?.admin) return true;   // entró con la clave de admin
+    if (!secret) return !NUBE;   // en casa eres tú; en nube sin login: nadie
     if (!s) return false;
     const propio = mundos.find((m) => m.propio);
     return propio ? s.login === propio.canal : false;
@@ -120,9 +124,32 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
         res.writeHead(302, { Location: '/', 'Set-Cookie': `sesion=${tok}; Path=/; HttpOnly; SameSite=Lax` });
         return res.end();
       }
+      // ---------- login con clave de admin (sin Twitch) ----------
       if (ruta === '/api/yo') {
         const s = sesionDe(req);
-        return json({ login: s?.login || null, modoLocal: !secret, admin: esAdmin(req) });
+        return json({ login: s?.login || null, modoLocal: !secret, admin: esAdmin(req), clave: Boolean(claveAdmin) });
+      }
+      if (ruta === '/auth/clave' && req.method === 'GET') {
+        if (!claveAdmin) return enviar(404, 'text/plain', 'Sin clave configurada.');
+        return enviar(200, 'text/html', `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrar — ${NOMBRE}</title>
+<style>body{font-family:system-ui;background:#14141f;color:#eee;display:flex;justify-content:center;padding-top:80px;margin:0}form{background:#1e1e2c;padding:26px;border-radius:12px;width:300px}input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #444;background:#111;color:#eee;box-sizing:border-box}button{width:100%;background:#8ab4f8;border:0;border-radius:8px;padding:10px;font-weight:800;cursor:pointer}p.err{color:#f87171;min-height:20px;font-size:14px}</style></head><body>
+<form onsubmit="return entrar(event)"><h2>🔑 Entrar</h2><input id="c" type="password" placeholder="Clave de admin" autocomplete="current-password"><p class="err" id="e"></p><button>Entrar</button></form>
+<script>async function entrar(ev){ev.preventDefault();const r=await fetch('/api/clave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clave:document.getElementById('c').value})});if(r.ok){location.href='/panel';}else{document.getElementById('e').textContent='Clave incorrecta.';}return false;}</script>
+</body></html>`);
+      }
+      if (ruta === '/api/clave' && req.method === 'POST') {
+        if (!claveAdmin) return json({ error: 'sin clave' }, 404);
+        const datos = await leerCuerpo(req);
+        const a = crypto.createHash('sha256').update(String(datos.clave || '')).digest();
+        const b = crypto.createHash('sha256').update(claveAdmin).digest();
+        if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+          const tok = crypto.randomBytes(16).toString('hex');
+          sesiones.set(tok, { admin: true, login: 'admin' });
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Set-Cookie': `sesion=${tok}; Path=/; HttpOnly; SameSite=Lax` });
+          return res.end('{"ok":true}');
+        }
+        await new Promise((r) => setTimeout(r, 800));   // frena fuerza bruta
+        return json({ error: 'clave incorrecta' }, 403);
       }
 
       // ---------- API ----------
@@ -273,7 +300,7 @@ input[type=range]{width:140px}
 small{color:#999}
 #arriba{display:flex;justify-content:space-between;align-items:center;max-width:640px}
 </style></head><body>
-<div id="arriba"><h1>🤖 Mi panel <small id="ver"></small></h1><div><span id="yo"></span> <button class="ghost" onclick="location.href='/auth/twitch'" id="btnLogin">Entrar con Twitch</button> <button class="ghost" onclick="location.href='/'">Web</button></div></div>
+<div id="arriba"><h1>🤖 Mi panel <small id="ver"></small></h1><div><span id="yo"></span> <button class="ghost" onclick="location.href='/auth/twitch'" id="btnLogin">Entrar con Twitch</button> <button class="ghost" onclick="location.href='/auth/clave'" id="btnClave" style="display:none">Entrar con clave</button> <button class="ghost" onclick="location.href='/'">Web</button></div></div>
 <div id="lista">Cargando...</div>
 <script>
 async function api(ruta, datos){
@@ -290,6 +317,7 @@ async function cargar(){
   const yo = await api('/api/yo');
   document.getElementById('yo').textContent = yo.login ? '@'+yo.login : (yo.modoLocal ? 'modo local' : '');
   document.getElementById('btnLogin').style.display = yo.modoLocal || yo.login ? 'none' : '';
+  document.getElementById('btnClave').style.display = (!yo.login && yo.clave) ? '' : 'none';
   const e = await api('/api/estado');
   document.getElementById('ver').textContent = 'v'+e.version;
   const d = document.getElementById('lista');
