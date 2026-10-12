@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 import { validarToken, refrescarToken } from './auth.js';
 import { crearLLM } from './brain/llm.js';
-import { leerCanales, credencialesCompartidas, guardarTokenCanal, guardarTokenCompartido } from './canales.js';
+import { leerCanales, credencialesCompartidas, guardarTokenCanal, guardarTokenCompartido, resolverFuente } from './canales.js';
 import { crearCanal } from './canal.js';
 import { crearPuente } from './puente.js';
 import { crearPanel } from './panel.js';
@@ -82,14 +82,14 @@ async function principal() {
   }
   bannerMulti(config, lista);
 
-  bannerMulti(config, lista, credencialesCompartidas(RAIZ).bot);
+  bannerMulti(config, lista, (resolverFuente(lista, RAIZ).bot || '(por confirmar)'));
 
   const mundos = [];
   const exigir = config.comercial?.exigirLicencia === true;
 
   // ---- bot único: las credenciales salen de la entrada `propio` o del .env,
   // ---- y se validan/renuevan UNA sola vez para todos los canales.
-  const comp = credencialesCompartidas(RAIZ);
+  const comp = resolverFuente(lista, RAIZ);
   let renovando = null;
   function renovarCompartido() {
     if (!renovando) {

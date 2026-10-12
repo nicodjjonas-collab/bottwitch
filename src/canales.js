@@ -63,9 +63,23 @@ export function credencialesCompartidas(RAIZ) {
   };
 }
 
-// Rellena bot/token en las entradas que no traen los suyos (heredan).
-// `tokenPropio` = true solo si la entrada trae token Y no es la `propio`
-// (la propio es la FUENTE de las compartidas, no un caso legacy).
+// Fuente de las credenciales compartidas: primero la entrada `propio`
+// DE LA PROPIA LISTA (en Render no hay archivo local), si no, archivo/.env.
+export function resolverFuente(lista, RAIZ) {
+  const p = (lista || []).find((x) => x.propio === true && (x.token || '').trim());
+  if (p) {
+    return {
+      bot: String(p.bot || '').toLowerCase().trim(),
+      clientId: String(p.clientId || '').trim(),
+      token: String(p.token || '').trim(),
+      refreshToken: String(p.refreshToken || '').trim(),
+      expiresAt: Number(p.expiresAt || 0),
+      origen: `canal #${p.channel} (propio)`,
+    };
+  }
+  return credencialesCompartidas(RAIZ);
+}
+
 function propagarCredenciales(lista, compartidas) {
   for (const c of lista) {
     const traeToken = Boolean((c.token || '').trim());
@@ -105,10 +119,8 @@ export function leerCanales(RAIZ) {
     try {
       const lista = JSON.parse(process.env.CANALES_JSON);
       if (!Array.isArray(lista)) throw new Error('CANALES_JSON debe ser una lista');
-      return propagarCredenciales(
-        lista.map(normalizarEntrada).filter((c) => c.channel),
-        credencialesCompartidas(RAIZ)
-      );
+      const normal = lista.map(normalizarEntrada).filter((c) => c.channel);
+      return propagarCredenciales(normal, resolverFuente(normal, RAIZ));
     } catch (e) {
       throw new Error(`CANALES_JSON no vale: ${e.message}`);
     }
@@ -118,10 +130,8 @@ export function leerCanales(RAIZ) {
     try {
       const lista = JSON.parse(fs.readFileSync(archivo, 'utf8'));
       if (!Array.isArray(lista)) throw new Error('canales.json debe ser una lista');
-      return propagarCredenciales(
-        lista.map(normalizarEntrada).filter((c) => c.channel),
-        credencialesCompartidas(RAIZ)
-      );
+      const normal = lista.map(normalizarEntrada).filter((c) => c.channel);
+      return propagarCredenciales(normal, resolverFuente(normal, RAIZ));
     } catch (e) {
       throw new Error(`config/canales.json no vale: ${e.message}`);
     }
