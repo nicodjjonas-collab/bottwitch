@@ -164,6 +164,30 @@ async function principal() {
   comprobar('Decide hablar cuando le toca', decidido !== null, decidido ? `"${decidido.texto}"` : 'no respondio');
   comprobar('No responde a sus propios comandos', (await brainForzado.pensar({ usuario: 't', texto: '!puntos' })) === null);
 
+  // 4c) Datos en vivo: el detector es puro (sin red) y el fetch nunca revienta.
+  const { detectarVivo, datoEnVivo } = await import('./brain/vivo.js');
+  const casosVivo = [
+    ['qué hora es?', 'hora', null],
+    ['qué tiempo hace en Sevilla?', 'clima', 'sevilla'],
+    ['cuánto está el bitcoin?', 'cripto', 'bitcoin'],
+    ['a cuánto está el dólar?', 'divisa', 'USD'],
+    ['cómo va el ibex?', 'bolsa', 'ibex'],
+    ['cuánto vale santander?', 'bolsa', 'santander'],
+    ['alguna noticia del madrid?', 'noticia', null],
+    ['hola que tal todo bien?', null, null],
+  ];
+  let vivosOk = 0;
+  for (const [texto, tipo, pista] of casosVivo) {
+    const d = detectarVivo(texto);
+    const bien = tipo === null ? d === null : (d && d.tipo === tipo && (pista === null || JSON.stringify(d).toLowerCase().includes(String(pista).toLowerCase())));
+    if (bien) vivosOk += 1;
+    else console.log(`     ${C.r}detector: "${texto}" -> ${JSON.stringify(d)}${C.x}`);
+  }
+  comprobar('El detector de preguntas en vivo acierta', vivosOk === casosVivo.length, `${vivosOk}/${casosVivo.length}`);
+  comprobar('Sin pregunta viva no hay fetch', (await datoEnVivo('hola que tal todo bien?')) === null);
+  const horaViva = await datoEnVivo('qué hora es?');
+  comprobar('La hora sale sin internet', typeof horaViva === 'string' && horaViva.length > 10, (horaViva || '').slice(0, 60));
+
   // ---- 5) comandos ----
   console.log(`\n${C.b}5) Comandos${C.x}`);
   const runtime = {

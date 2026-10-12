@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import { cerebroLocal } from './local.js';
 import { crearLLM } from './llm.js';
+import { datoEnVivo } from './vivo.js';
 import { leerJson, escribirJson } from '../store.js';
 import { logger } from '../logger.js';
 
@@ -133,7 +134,14 @@ export class Brain {
     let fuente = 'local';
 
     if (this.modo === 'llm') {
-      const extra = this.store ? `Puntos de ${usuario}: ${this.store.getPoints(usuario)}.` : '';
+      let extra = this.store ? `Puntos de ${usuario}: ${this.store.getPoints(usuario)}.` : '';
+      // Si pregunta por algo de actualidad (clima, precios, noticias...),
+      // se mira en vivo y se le pasa a la IA. Nunca bloquea: como mucho
+      // tarda unos segundos, y si falla la IA tira de lo que sabe.
+      try {
+        const vivo = await datoEnVivo(texto);
+        if (vivo) extra += ` Dato en vivo, actualizado ahora mismo: ${vivo}`;
+      } catch {}
       // La IA tiene 7 segundos: si tarda más (hora punta, cola...), se tira de
       // plantillas al momento en vez de dejar el chat esperando y atrasarse.
       const rapido = new Promise((resolver) => setTimeout(() => resolver(null), 7000));

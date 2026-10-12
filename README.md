@@ -304,7 +304,11 @@ ni claves, y **no inventa**: si no sabe qué decir, se calla.
 
 ### Modo IA (conversación de verdad)
 
-Detecta el contexto real y responde a cualquier cosa. Necesitas una clave de API:
+Detecta el contexto real y responde a cualquier cosa, con libertad total de
+temas (actualidad, política, deportes, finanzas...). Y cuando le preguntan
+algo del momento, **lo mira en vivo**: hora, clima de cualquier ciudad,
+cripto, divisas, bolsa e titulares, con APIs gratuitas. Si algo falla,
+responde con lo que sabe sin quedarse callado. Necesitas una clave de API:
 
 1. Elige proveedor y crea una clave:
    | Proveedor | Dónde | Coste |
