@@ -87,11 +87,21 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
       const json = (obj, codigo = 200) => enviar(codigo, 'application/json', JSON.stringify(obj));
 
       // ---------- login con Twitch (opcional) ----------
+      // La URL de vuelta se construye con el Host que pide cada uno:
+      // en casa sale http://localhost:8099/... y en la nube https://tu-bot...
+      // (esa URL pública tiene que estar registrada en tu app de Twitch).
+      // Si alguien la falsea, Twitch la rechaza: falla cerrado.
+      const baseAqui = (() => {
+        const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+        if (!host) return `http://localhost:${puerto}`;
+        const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || (host.startsWith('localhost') ? 'http' : 'https');
+        return `${proto}://${host}`;
+      })();
       if (ruta === '/auth/twitch') {
         if (!secret || !clientId) {
           return enviar(200, 'text/html', '<h1>Panel local</h1><p>Aquí no hay login: pon TWITCH_CLIENT_SECRET en el .env y reinicia para pedir login con Twitch. <a href="/">Volver</a></p>');
         }
-        const redir = `http://localhost:${puerto}/auth/callback`;
+        const redir = `${baseAqui}/auth/callback`;
         const u = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redir)}&response_type=code&scope=user:read:email`;
         res.writeHead(302, { Location: u });
         return res.end();
@@ -99,7 +109,7 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
       if (ruta === '/auth/callback') {
         const code = url.searchParams.get('code');
         if (!code || !secret) return enviar(400, 'text/plain', 'Falta el código.');
-        const cuerpo = new URLSearchParams({ client_id: clientId, client_secret: secret, code, grant_type: 'authorization_code', redirect_uri: `http://localhost:${puerto}/auth/callback` });
+        const cuerpo = new URLSearchParams({ client_id: clientId, client_secret: secret, code, grant_type: 'authorization_code', redirect_uri: `${baseAqui}/auth/callback` });
         const r = await fetch('https://id.twitch.tv/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: cuerpo }).then((x) => x.json()).catch(() => ({}));
         if (!r.access_token) return enviar(400, 'text/plain', 'Twitch no dio token.');
         const yo = await fetch('https://api.twitch.tv/helix/users', { headers: { Authorization: `Bearer ${r.access_token}`, 'Client-Id': clientId } }).then((x) => x.json()).catch(() => ({}));
