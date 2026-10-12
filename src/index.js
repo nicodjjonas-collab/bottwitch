@@ -87,14 +87,16 @@ async function principal() {
 
   // ---- bot único: las credenciales salen de la entrada `propio` o del .env,
   // ---- y se validan/renuevan UNA sola vez para todos los canales.
+  // El secret solo existe si la app es Confidencial (panel login + refresh).
   const comp = resolverFuente(lista, RAIZ);
+  const twitchSecret = (process.env.TWITCH_CLIENT_SECRET || '').trim();
   let renovando = null;
   function renovarCompartido() {
     if (!renovando) {
       renovando = (async () => {
         try {
           logger.warn('El token del bot ya no vale. Intento renovarlo...');
-          const nuevos = await refrescarToken({ clientId: comp.clientId, refreshToken: comp.refreshToken });
+          const nuevos = await refrescarToken({ clientId: comp.clientId, refreshToken: comp.refreshToken, clientSecret: twitchSecret || undefined });
           comp.token = nuevos.access_token;
           if (nuevos.refresh_token) comp.refreshToken = nuevos.refresh_token;
           comp.expiresAt = Date.now() + (nuevos.expires_in || 0) * 1000;

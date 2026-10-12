@@ -90,12 +90,14 @@ export async function pedirTokenDispositivo({ clientId, alAvisar } = {}) {
   throw new Error('Se acabo el tiempo esperando la autorizacion.');
 }
 
-export async function refrescarToken({ clientId, refreshToken }) {
+export async function refrescarToken({ clientId, refreshToken, clientSecret = '' }) {
   const cuerpo = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
     client_id: clientId,
   });
+  // Las apps Confidencial exigen el secret para renovar; las Public no.
+  if (clientSecret) cuerpo.set('client_secret', clientSecret);
   const r = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
