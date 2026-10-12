@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 import { validarToken, refrescarToken } from './auth.js';
 import { crearLLM } from './brain/llm.js';
-import { leerCanales, guardarTokenCanal } from './canales.js';
+import { leerCanales, credencialesCompartidas, guardarTokenCanal, guardarTokenCompartido } from './canales.js';
 import { crearCanal } from './canal.js';
 import { crearPuente } from './puente.js';
 import { crearPanel } from './panel.js';
@@ -49,13 +49,14 @@ function leerConfig() {
   }
 }
 
-function bannerMulti(config, lista) {
+function bannerMulti(config, lista, botUnico) {
   logger.linea();
-  console.log('   BOT DE CHAT PARA TWITCH (multi-canal)');
+  console.log('   BOT DE CHAT PARA TWITCH (multi-canal, bot único)');
   console.log('   conversacion + juegos + moderacion + recordatorios');
   logger.linea();
+  logger.info(`Bot único    : ${botUnico || '(por confirmar)'} (habla en todos los canales)`);
   for (const c of lista) {
-    logger.info(`Canal #${c.channel} -> bot ${c.bot || '(por confirmar)'} · plan ${c.plan || 'full'}${c.propio ? ' (propio)' : ''}`);
+    logger.info(`Canal #${c.channel} · plan ${c.plan || 'full'}${c.propio ? ' (propio)' : ''}${c.tokenPropio ? ' (token propio)' : ''}`);
   }
   logger.info(`Prefijo      : ${config.prefix}`);
   logger.info(`Conversacion : ${config.conversation.mode === 'llm' ? 'IA (LLM, cuota compartida)' : 'local (reglas)'} | responder a ~${Math.round((config.conversation.replyChance || 0) * 100)}% de los mensajes`);
@@ -81,8 +82,64 @@ async function principal() {
   }
   bannerMulti(config, lista);
 
+  bannerMulti(config, lista, credencialesCompartidas(RAIZ).bot);
+
   const mundos = [];
   const exigir = config.comercial?.exigirLicencia === true;
+
+  // ---- bot único: las credenciales salen de la entrada `propio` o del .env,
+  // ---- y se validan/renuevan UNA sola vez para todos los canales.
+  const comp = credencialesCompartidas(RAIZ);
+  let renovando = null;
+  function renovarCompartido() {
+    if (!renovando) {
+      renovando = (async () => {
+        try {
+          logger.warn('El token del bot ya no vale. Intento renovarlo...');
+          const nuevos = await refrescarToken({ clientId: comp.clientId, refreshToken: comp.refreshToken });
+          comp.token = nuevos.access_token;
+          if (nuevos.refresh_token) comp.refreshToken = nuevos.refresh_token;
+          comp.expiresAt = Date.now() + (nuevos.expires_in || 0) * 1000;
+          if (!guardarTokenCompartido(RAIZ, { token: comp.token, refreshToken: comp.refreshToken, expiresAt: comp.expiresAt })) {
+            logger.info(process.env.CANALES_JSON
+              ? 'Actualiza la variable CANALES_JSON con el token nuevo para que quede guardado.'
+              : 'Actualiza BOT_TOKEN en .env para que quede guardado.');
+          }
+          const info2 = await validarToken(comp.token);
+          if (!info2) throw new Error('el token renovado no valida en Twitch');
+          logger.ok('Token del bot renovado.');
+          return info2;
+        } finally {
+          renovando = null;
+        }
+      })();
+      renovando.catch(() => {});
+    }
+    return renovando;
+  }
+
+  let infoBot = null;
+  let botCompartidoOK = false;
+  if (!DRY_RUN) {
+    if (comp.token) {
+      infoBot = await validarToken(comp.token);
+      if (!infoBot && comp.refreshToken && comp.clientId) {
+        try { infoBot = await renovarCompartido(); }
+        catch (e) { logger.error(`No pude renovar el token del bot: ${e.message}`); }
+      }
+    }
+    if (infoBot) {
+      botCompartidoOK = true;
+      comp.bot = (infoBot.login || comp.bot || '').toLowerCase();
+      logger.ok(`Bot único: ${comp.bot} (id ${infoBot.user_id}). Atiende los canales de abajo.`);
+      if (infoBot.scopes && !infoBot.scopes.includes('moderator:manage:chat_messages')) {
+        logger.warn('Al token le falta permiso para borrar mensajes. Re-autoriza con: npm run auth');
+      }
+    } else {
+      logger.error('El token del bot único no es válido. Autoriza con:  npm run auth');
+    }
+  }
+
   for (const c of lista) {
     const tag = `#${c.channel}`;
     // ---- licencia (solo frena si el modo comercial está activado) ----
@@ -92,14 +149,11 @@ async function principal() {
       continue;
     }
     if (lic.plan && !c.propio) c.plan = lic.plan;
-    if (!c.token && !DRY_RUN) {
-      logger.error(`[${tag}] Falta el token. Autoriza con:  npm run auth -- --canal=${c.channel}`);
-      continue;
-    }
-    // ---- validar / renovar token ----
-    let info = null;
-    if (!DRY_RUN) {
-      info = await validarToken(c.token);
+
+    let botId = null;
+    if (c.tokenPropio && !DRY_RUN) {
+      // ---- legacy: este canal trae su propio token y se valida aparte ----
+      let info = c.token ? await validarToken(c.token) : null;
       if (!info && c.refreshToken && c.clientId) {
         logger.warn(`[${tag}] El token ya no vale. Intento renovarlo...`);
         try {
@@ -107,8 +161,7 @@ async function principal() {
           c.token = nuevos.access_token;
           c.refreshToken = nuevos.refresh_token || c.refreshToken;
           c.expiresAt = Date.now() + (nuevos.expires_in || 0) * 1000;
-          const guardado = guardarTokenCanal(RAIZ, c.channel, { token: c.token, refreshToken: c.refreshToken, expiresAt: c.expiresAt });
-          if (!guardado) logger.info(`[${tag}] Actualiza BOT_TOKEN en .env para que quede guardado.`);
+          guardarTokenCanal(RAIZ, c.channel, { token: c.token, refreshToken: c.refreshToken, expiresAt: c.expiresAt });
           info = await validarToken(c.token);
           if (info) logger.ok(`[${tag}] Token renovado.`);
         } catch (e) {
@@ -120,31 +173,53 @@ async function principal() {
         continue;
       }
       c.bot = (info.login || c.bot || '').toLowerCase();
-      logger.ok(`[${tag}] Token valido. Bot: ${c.bot} (id ${info.user_id})`);
+      botId = info.user_id || null;
+      logger.ok(`[${tag}] Token propio valido. Bot: ${c.bot}`);
       if (info.scopes && !info.scopes.includes('moderator:manage:chat_messages')) {
         logger.warn(`[${tag}] Sin permiso para borrar mensajes. Re-autoriza con: npm run auth -- --canal=${c.channel}`);
       }
     } else {
-      c.bot = c.bot || 'bot_de_prueba';
+      // ---- bot único compartido (lo normal: el cliente no autoriza nada) ----
+      if (!DRY_RUN && !botCompartidoOK) {
+        logger.error(`[${tag}] Sin token válido del bot único. Autoriza con:  npm run auth`);
+        continue;
+      }
+      c.bot = DRY_RUN ? (comp.bot || c.bot || 'bot_de_prueba') : comp.bot;
+      c.token = comp.token;
+      c.clientId = comp.clientId;
+      c.refreshToken = comp.refreshToken;
+      botId = DRY_RUN ? null : (infoBot?.user_id || null);
+      logger.info(`[${tag}] Usa el bot único (${c.bot}). El cliente solo tiene que ponerlo de mod: /mod ${c.bot}`);
     }
 
     try {
-      const mundo = await crearCanal({ channelCfg: { ...c, botId: info?.user_id || null }, config, RAIZ, llm, dryRun: DRY_RUN });
+      const mundo = await crearCanal({ channelCfg: { ...c, botId }, config, RAIZ, llm, dryRun: DRY_RUN });
       mundo.chat.on('authfallida', async () => {
         const cc = mundo.cfg;
-        if (!cc.refreshToken || !cc.clientId) {
-          logger.error(`[${mundo.tag}] Sin refresh token. Autoriza con: npm run auth -- --canal=${mundo.canal}`);
-          return;
-        }
         try {
-          const nuevos = await refrescarToken({ clientId: cc.clientId, refreshToken: cc.refreshToken });
-          cc.token = nuevos.access_token;
-          guardarTokenCanal(RAIZ, mundo.canal, { token: cc.token });
-          mundo.chat.token = cc.token.startsWith('oauth:') ? cc.token : `oauth:${cc.token}`;
+          if (cc.tokenPropio) {
+            if (!cc.refreshToken || !cc.clientId) {
+              logger.error(`[${mundo.tag}] Sin refresh token. Autoriza con: npm run auth -- --canal=${mundo.canal}`);
+              return;
+            }
+            const nuevos = await refrescarToken({ clientId: cc.clientId, refreshToken: cc.refreshToken });
+            cc.token = nuevos.access_token;
+            guardarTokenCanal(RAIZ, mundo.canal, { token: cc.token });
+          } else {
+            await renovarCompartido();
+            for (const ot of mundos) {
+              if (!ot.cfg || ot.cfg.tokenPropio) continue;
+              ot.cfg.token = comp.token;
+              ot.cfg.refreshToken = comp.refreshToken;
+              try { ot.chat.token = comp.token.startsWith('oauth:') ? comp.token : `oauth:${comp.token}`; } catch {}
+            }
+          }
+          mundo.chat.token = (cc.tokenPropio ? cc.token : comp.token);
+          mundo.chat.token = mundo.chat.token.startsWith('oauth:') ? mundo.chat.token : `oauth:${mundo.chat.token}`;
           logger.ok(`[${mundo.tag}] Token renovado; reconecto en 3 s...`);
           setTimeout(() => mundo.chat.conectar(), 3000);
         } catch (e) {
-          logger.error(`[${mundo.tag}] No pude renovar: ${e.message}. Autoriza con: npm run auth -- --canal=${mundo.canal}`);
+          logger.error(`[${mundo.tag}] No pude renovar: ${e.message}. Autoriza con: npm run auth`);
         }
       });
       mundos.push(mundo);

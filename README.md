@@ -63,11 +63,12 @@ Doble clic en **`AUTORIZAR-BOT.cmd`**.
    - Si usas tu cuenta principal → el bot hablará como tú.
 4. Pega el código, acepta los permisos y listo. El programa guarda todo en el archivo `.env`.
 
-> **Varios canales:** el bot atiende todos los de `config/canales.json` a la vez,
-> cada uno con sus puntos, juegos y overlay (`?canal=`). Tu canal va con plan
-> `full` y `propio` (gratis con todo). Añade otro con:
-> `node src/auth.js --canal=otro_canal --plan=basico`
-> (con su cuenta de bot). Ver `LEEME-NUBE.md` para el 24/7 en la nube.
+> **Varios canales, un solo bot:** sesionesoldschool atiende todos los de
+> `config/canales.json` a la vez, cada uno con sus puntos, juegos y overlay
+> (`?canal=`). Tu canal va con plan `full` y `propio` (gratis con todo).
+> Dar de alta un cliente NO le pide nada (ni cuenta de bot, ni código, ni
+> autorizar): `node src/auth.js --alta=otro_canal --plan=basico`
+> y que ponga `/mod sesionesoldschool` en su chat. Ver `LEEME-NUBE.md` para el 24/7 en la nube.
 >
 > ## 🖥️ Web BotDJ (portada + panel + admin)
 >

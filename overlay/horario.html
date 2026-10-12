@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horario - jonasrdb</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  body { font-family: system-ui, "Segoe UI", sans-serif; }
+  #panel {
+    position: fixed; left: 24px; bottom: 24px;
+    background: rgba(10, 10, 25, 0.82);
+    border: 2px solid #8ab4f8; border-radius: 14px;
+    color: #fff; padding: 12px 18px 13px;
+    box-shadow: 0 0 22px rgba(138, 180, 248, 0.45);
+    min-width: 280px; max-width: 430px;
+  }
+  #titulo { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #8ab4f8; margin-bottom: 4px; }
+  #dias { font-size: 24px; font-weight: 800; }
+  #hora { font-size: 20px; font-weight: 700; color: #ffd166; }
+  #cuenta { font-size: 15px; font-weight: 600; color: #b388ff; margin-top: 4px; }
+  #texto { font-size: 13px; color: #cfd6e4; margin-top: 2px; }
+  #endirecto {
+    display: none; font-size: 20px; font-weight: 800; color: #ff4d6d;
+    animation: parpadeo 1.2s infinite;
+  }
+  @keyframes parpadeo { 50% { opacity: 0.35; } }
+</style>
+</head>
+<body>
+  <div id="panel">
+    <div id="titulo">🗓️ PRÓXIMOS DIRECTOS</div>
+    <div id="endirecto">🔴 ¡EN DIRECTO AHORA!</div>
+    <div id="dias">viernes y sábado</div>
+    <div id="hora">22:00</div>
+    <div id="cuenta"></div>
+    <div id="texto">twitch.tv/jonasrdb</div>
+  </div>
+<script>
+(function () {
+  var DIAS = { lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, domingo: 0 };
+  function sinTildes(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  var p = new URLSearchParams(window.location.search);
+  var diasParam = (p.get('dias') || 'viernes,sabado').split(',').map(function (d) { return d.trim(); }).filter(Boolean);
+  var diasNum = diasParam.map(function (d) {
+    if (/^[0-6]$/.test(d)) return Number(d);
+    return DIAS[sinTildes(d)] !== undefined ? DIAS[sinTildes(d)] : 5;
+  });
+  var horaParam = p.get('hora') || '22:00';
+  var hm = String(horaParam).split(':');
+  var HH = Number(hm[0]) || 22, MM = Number(hm[1]) || 0;
+  var texto = p.get('texto') || 'twitch.tv/jonasrdb';
+  // Color del tema: ?color=red|blue|purple...
+  var colores = { azul: '#8ab4f8', morado: '#b388ff', rojo: '#ff4d6d', verde: '#06d6a0', dorado: '#ffd166', rosa: '#ef6ea8' };
+  var color = colores[sinTildes(p.get('color') || '')] || '#8ab4f8';
+
+  var NOMBRES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  document.getElementById('dias').textContent = diasNum.map(function (d) { return NOMBRES[d]; }).join(' y ');
+  document.getElementById('hora').textContent = String(HH).padStart(2, '0') + ':' + String(MM).padStart(2, '0') + ' (hora española)';
+  document.getElementById('texto').textContent = texto;
+  document.getElementById('panel').style.borderColor = color;
+  document.getElementById('titulo').style.color = color;
+
+  function proximoDirecto() {
+    var ahora = new Date();
+    // ¿Estamos en ventana de directo? (desde la hora hasta 3h después, en día de emisión)
+    for (var i = 0; i < diasNum.length; i++) {
+      if (ahora.getDay() === diasNum[i]) {
+        var ini = new Date(ahora); ini.setHours(HH, MM, 0, 0);
+        var fin = new Date(ini.getTime() + 3 * 3600 * 1000);
+        if (ahora >= ini && ahora <= fin) return { directo: true, cuando: ini };
+      }
+    }
+    // Siguiente emisión
+    for (var d = 0; d < 8; d++) {
+      var c = new Date(ahora.getTime() + d * 86400 * 1000);
+      if (diasNum.indexOf(c.getDay()) !== -1) {
+        var h = new Date(c); h.setHours(HH, MM, 0, 0);
+        if (h > ahora) return { directo: false, cuando: h };
+      }
+    }
+    return null;
+  }
+
+  function tick() {
+    var el = document.getElementById('cuenta');
+    var ed = document.getElementById('endirecto');
+    var pr = proximoDirecto();
+    if (!pr) { el.textContent = ''; ed.style.display = 'none'; return; }
+    if (pr.directo) {
+      ed.style.display = 'block';
+      el.textContent = '¡Pasa y saluda en el chat! 🎧';
+      return;
+    }
+    ed.style.display = 'none';
+    var ms = pr.cuando - new Date();
+    var dias = Math.floor(ms / 86400000);
+    var horas = Math.floor(ms % 86400000 / 3600000);
+    var min = Math.floor(ms % 3600000 / 60000);
+    var partes = [];
+    if (dias > 0) partes.push(dias + 'd');
+    partes.push(horas + 'h');
+    partes.push(min + 'm');
+    el.textContent = '⏳ Empiezo en ' + partes.join(' ') + ' · ¡activa la campanita! 🔔';
+  }
+  tick();
+  setInterval(tick, 30000);
+})();
+</script>
+</body>
+</html>

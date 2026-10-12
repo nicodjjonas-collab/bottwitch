@@ -29,8 +29,8 @@ Nunca* con corriente).
 ## Notas
 
 - No hay que autorizar de nuevo: el ZIP ya lleva `config/canales.json`
-  con tus canales. Si un token caduca, el bot lo renueva solo; si pide
-  autorizar, ejecuta `AUTORIZAR-BOT.cmd` (o con `--canal=` para otros).
+  con tus canales. Si el token del bot caduca, se renueva solo; si pide
+  autorizar, ejecuta `AUTORIZAR-BOT.cmd` (una sola vez, con sesionesoldschool).
 - Los puntos y la memoria viajan en `src/data/` si los copias también
   (no vienen en el ZIP; si los quieres, copia esa carpeta a mano).
 - Para actualizar: repite el ZIP y descomprime encima (no pisa `src/data`).

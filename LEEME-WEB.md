@@ -27,7 +27,8 @@ abre en modo local (sin login): ves todo.
 
 - Pon tu enlace de Ko-fi en `config.json` → `comercial.kofi`.
 - El cliente paga → tú creas su licencia en `/admin` (plan + días) → le das
-  de alta el canal con `node src/auth.js --canal=X` → listo.
+  de alta el canal con `node src/auth.js --alta=X` (sin pedirle nada: ni
+  cuenta, ni código) → el cliente pone `/mod sesionesoldschool` → listo.
 - Cuando haya volumen: pon `comercial.exigirLicencia` en `true` y los canales
   sin licencia vinculada **no arrancan** (el tuyo y kokodeejay siguen gratis).
 - Stripe automático queda para la fase 2 (pide empresa/cuenta bancaria).

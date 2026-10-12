@@ -6,6 +6,7 @@
 //  Login con Twitch: opcional. Sin TWITCH_CLIENT_SECRET el panel abre en
 //  modo local (para gestionarlo tú). Con secret, pide login y cada uno
 //  solo ve su canal.
+//  Además sirve el overlay en /overlay/* (público, para el OBS de clientes).
 // =====================================================================
 
 import http from 'node:http';
@@ -185,6 +186,29 @@ export function crearPanel({ config, mundos, RAIZ, cerrar }) {
           }
         } catch {}
         return json({ fecha: new Date().toISOString(), datos });
+      }
+
+      // ---------- overlay para OBS (público, sin login) ----------
+      // Los clientes lo ponen como fuente de navegador, sin instalar nada:
+      //   https://TU-BOT/overlay/avatares.html?canal=sucanal
+      if (ruta === '/overlay' || ruta === '/overlay/') {
+        res.writeHead(302, { Location: '/overlay/avatares.html' });
+        return res.end();
+      }
+      if (ruta.startsWith('/overlay/') && req.method === 'GET') {
+        const rel = decodeURIComponent(ruta.slice('/overlay/'.length)).replace(/\\/g, '/');
+        const base = path.resolve(RAIZ, 'overlay');
+        const abs = path.resolve(base, rel);
+        if (abs !== base && !abs.startsWith(base + path.sep)) return enviar(403, 'text/plain', 'No permitido.');
+        const ext = path.extname(abs).toLowerCase();
+        const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.txt': 'text/plain' };
+        if (!MIME[ext]) return enviar(403, 'text/plain', 'No permitido.');
+        fs.readFile(abs, (err, data) => {
+          if (err) return enviar(404, 'text/plain', 'No existe.');
+          res.writeHead(200, { 'Content-Type': MIME[ext] + (ext === '.png' ? '' : '; charset=utf-8'), 'Cache-Control': 'public, max-age=300' });
+          res.end(data);
+        });
+        return;
       }
 
       // ---------- páginas ----------

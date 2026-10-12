@@ -43,12 +43,14 @@ cp .env.example .env
 nano .env   # pega tu LLM_API_KEY (la de Groq, empieza por gsk_)
 ```
 
-## Paso 4 — Autorizar los canales (uno por uno)
+## Paso 4 — Autorizar el bot (una sola vez) y dar de alta canales
 
 ```bash
 node src/auth.js --canal=jonasrdb
 # Te da un código: abre twitch.tv/activate con la cuenta sesionesoldschool.
-# Repite por cada canal de pago:  node src/auth.js --canal=otro --plan=basico
+# Los canales de clientes NO se autorizan: se dan de alta sin pedirles nada:
+#   node src/auth.js --alta=otro --plan=basico
+# y el cliente solo pone  /mod sesionesoldschool  en su chat.
 node --env-file-if-exists=.env src/index.js --dry-run   # comprobar sin conectar
 ```
 

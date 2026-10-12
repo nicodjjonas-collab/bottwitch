@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stream Avatars - jonasrdb</title>
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+  <!-- Este lienzo es el overlay. Fondo transparente para OBS. -->
+  <canvas id="lienzo" width="1920" height="1080"></canvas>
+
+  <!-- Aviso de error en pantalla (util para ver que pasa dentro de OBS) -->
+  <div id="error"></div>
+
+  <!-- Resultados de las comprobaciones (solo en modo test) -->
+  <pre id="resultados"></pre>
+
+  <!-- Orden importante: config, sprites, catalogo de skins, chat, motor y arranque -->
+  <script src="js/config.js"></script>
+  <script src="js/sprites.js"></script>
+  <!-- Disfraces extra. Si este archivo no existe, el overlay funciona igual. -->
+  <script src="js/skins.js"></script>
+  <script src="js/irc.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

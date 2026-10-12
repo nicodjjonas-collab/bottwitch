@@ -121,6 +121,9 @@ export async function validarToken(token) {
 // ----------------- ejecucion directa:  npm run auth -----------------
 // Opciones:  npm run auth -- --canal=otro_canal --bot=cuenta_bot --plan=full
 // Sin --canal, guarda en .env como siempre (tu canal).
+// Nuevo:     npm run auth -- --alta=nuevocanal [--plan=full]
+//   Da de alta un canal de cliente SIN pedirle nada: usa el bot único
+//   compartido. El cliente solo tiene que ponerlo de moderador en su chat.
 async function principal() {
   console.log('\n=====================================================');
   console.log('   AUTORIZAR EL BOT CON TWITCH');
@@ -135,6 +138,20 @@ async function principal() {
   const canalArg = String(args.canal || args.channel || '').toLowerCase().trim() || null;
   const botArg = String(args.bot || '').toLowerCase().trim() || null;
   const planArg = String(args.plan || 'full').toLowerCase().trim() || 'full';
+  const altaArg = String(args.alta || '').toLowerCase().trim().replace(/^@/, '') || null;
+
+  if (altaArg) {
+    // Alta rápida de cliente: sin códigos, sin cuentas, sin autorizar.
+    const { altaCanal, credencialesCompartidas } = await import('./canales.js');
+    const reg = altaCanal(RAIZ, { channel: altaArg, plan: planArg });
+    const comp = credencialesCompartidas(RAIZ);
+    const nombreBot = comp.bot || '(bot aún sin autorizar: ejecuta npm run auth)';
+    console.log(`\n  Canal #${reg.channel} dado de alta (plan ${reg.plan}).`);
+    console.log('  El cliente NO tiene que autorizar nada. Solo esto en su chat:');
+    console.log(`    /mod ${nombreBot}`);
+    console.log('  Luego comprueba con !ayuda en su chat. Reinicia el bot para que entre.\n');
+    return;
+  }
 
   const env = leerEnv();
   const rl = readline.createInterface({ input: entrada, output: salida });
