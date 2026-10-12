@@ -5,6 +5,7 @@ import { logger } from './logger.js';
 import { manejarTrack } from './tracklist.js';
 import { manejarMetas, pintarMetas } from './metas.js';
 import { manejarDirecto } from './directo.js';
+import { manejarMultichat } from './multichat/comandos.js';
 
 export function crearComandos({ cfg, config, store, brain, juegos, moderador, chat, helix, runtime, ids }) {
   const P = config.prefix || '!';
@@ -373,6 +374,8 @@ export function crearComandos({ cfg, config, store, brain, juegos, moderador, ch
       if (cmd === 'clip' || cmd === 'clips' || cmd === 'momentazo' || cmd === 'horario' || cmd === 'horarios' || cmd === 'cuando') {
         if (manejarDirecto(cmd, args, { mensaje, chat, config })) return true;
       }
+      // ---------- MULTICHAT (YouTube + Kick) ----------
+      if (manejarMultichat(cmd, args, { mensaje, esMod, chat, runtime })) return true;
       // ---------- ARRANCAR UN JUEGO ----------
       const juego = juegos.buscar(cmd);
       if (juego) {

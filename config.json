@@ -375,6 +375,26 @@
     "reconnectMaxSeconds": 60,
     "logRawMessages": false
   },
+  "multichat": {
+    "youtube": {
+      "enabled": false,
+      "_enabled": "leer el chat de tu directo de YouTube y traerlo a Twitch (necesita AUTORIZAR-YT.cmd una vez)",
+      "clientId": "",
+      "_clientId": "Client ID de Google (proyecto con YouTube Data API v3, app de escritorio). Tambien vale YT_CLIENT_ID en .env",
+      "intervaloSegundos": 10,
+      "_intervaloSegundos": "cada cuanto se lee el chat de YouTube (5-30, a mas rapido mas cuota)",
+      "topeCuotaDiaria": 8000,
+      "_topeCuotaDiaria": "tope de seguridad (el limite gratis de Google son 10.000 unidades/dia; leer gasta ~5, enviar ~50)",
+      "videoId": "",
+      "_videoId": "fijar un video concreto (opcional, con !ytvideo). Vacio = autodetecta tu directo"
+    },
+    "kick": {
+      "enabled": false,
+      "_enabled": "leer el chat de tu canal de Kick y traerlo a Twitch (sin claves, pero Kick puede cambiarlo y romperse)",
+      "canal": "",
+      "_canal": "tu canal de Kick. Vacio = usa el mismo nombre que en Twitch"
+    }
+  },
   "advanced": {
     "storeSaveDebounceMs": 4000,
     "statsFile": "src/data/stats.json",

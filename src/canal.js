@@ -15,6 +15,8 @@ import { crearComandos } from './commands.js';
 import { crearPromos } from './promos.js';
 import { crearDatosOBS } from './obs.js';
 import { crearPipeline } from './pipeline.js';
+import { crearPuente } from './multichat/puente.js';
+import { guardarYoutube } from './canales.js';
 import { fusionarAjustes } from './canales.js';
 
 export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, dryRun = false }) {
@@ -87,6 +89,7 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
     mensajeFollow: () => '',
     plan: channelCfg.plan || 'full',
     propio: channelCfg.propio === true,
+    puentes: null,
   };
 
   let ultimaActividad = 0;
@@ -125,11 +128,25 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
 
   const pipeline = crearPipeline({ config, store, chat, brain, juegos, moderador, comandos, promos, log: logger });
 
+  // Puente multichat (YouTube + Kick): vive con el canal, arranca con Twitch.
+  const puente = crearPuente({
+    canal,
+    tag,
+    config,
+    chat,
+    brain,
+    youtube: { ...(config.multichat?.youtube || {}), ...(channelCfg.youtube || {}) },
+    guardarYoutube: (obj) => guardarYoutube(RAIZ, canal, obj),
+    log: logger,
+  });
+  runtime.puentes = puente;
+
   chat.on('conectado', () => {
     logger.linea();
     logger.ok(`Bot en marcha en ${tag} (plan ${runtime.plan}${runtime.propio ? ', propio: gratis con todo' : ''}).`);
     logger.linea();
     promos.iniciar();
+    if (!dryRun) puente.iniciar();
   });
   chat.on('mensaje', (mensaje) => {
     ultimaActividad = Date.now();
@@ -183,6 +200,7 @@ export async function crearCanal({ channelCfg, config: configGlobal, RAIZ, llm, 
     tick() { try { juegos.tick(); } catch (e) { logger.error(`[${tag}] latido: ${e.message}`); } },
     guardar() { try { store.guardar(true); } catch {} try { brain.guardarMemoria(); } catch {} },
     cerrar() {
+      try { puente.detener(); } catch {}
       promos.detener();
       try { chat.say('Me voy a descansar un rato 👋'); } catch {}
       brain.cerrar();

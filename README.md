@@ -136,6 +136,10 @@ Doble clic en **`PROBAR-BOT.cmd`** → ejecuta 49 comprobaciones internas y no t
 | **`!clip <texto>`** | Marcar un momentazo para hacerlo Short después | Todos |
 | **`!horario`** | Días y hora de los directos | Todos |
 | **`!track Artista - Título`** / **`!tracklist`** | Anotar temas y ver la lista (para YouTube) | Mods / Todos |
+| **`!multichat`** | Estado de los puentes con YouTube y Kick | Todos |
+| **`!ryt <texto>`** | Responder al chat de YouTube desde Twitch | Mods |
+| **`!rk <texto>`** | Kick es de solo lectura (te lo explica) | Todos |
+| **`!ytvideo <id>`** / **`!ytvideo off`** | Fijar el video de YouTube a leer (o autodetectar) | Mods |
 
 El prefijo es `!` y se cambia en `config.json` (`prefix`).
 

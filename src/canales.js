@@ -231,16 +231,64 @@ export function leerAjustes(RAIZ, channel) {
   }
 }
 
+// YouTube de un canal (refreshToken + videoId fijo). Se fusiona con lo que
+// haya, sin tocar el resto de la entrada. Los tokens solo los tocan scripts.
+export function guardarYoutube(RAIZ, channel, obj) {
+  const dir = path.join(RAIZ, 'config');
+  const archivo = path.join(dir, 'canales.json');
+  fs.mkdirSync(dir, { recursive: true });
+  let lista = [];
+  if (fs.existsSync(archivo)) {
+    try { lista = JSON.parse(fs.readFileSync(archivo, 'utf8')); } catch { lista = []; }
+  }
+  if (!Array.isArray(lista)) lista = [];
+  const cual = String(channel || '').toLowerCase().trim().replace(/^@/, '');
+  if (!cual) throw new Error('Falta el canal');
+  let c = lista.find((x) => String(x.channel || '').toLowerCase() === cual);
+  if (!c) {
+    c = { channel: cual, enabled: true, plan: 'full' };
+    lista.push(c);
+  }
+  c.youtube = { ...(c.youtube || {}) };
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v === undefined || v === null) continue;
+    c.youtube[k] = v;
+  }
+  fs.writeFileSync(archivo, JSON.stringify(lista, null, 2), 'utf8');
+  return c.youtube;
+}
+
 // Fusión profunda solo de las ramas que el panel permite tocar.
-const RAMAS = ['conversation', 'games', 'promos', 'songrequests', 'bpm', 'festero', 'economy', 'commands'];
+const RAMAS = ['conversation', 'games', 'promos', 'songrequests', 'bpm', 'festero', 'economy', 'commands', 'multichat'];
 export function fusionarAjustes(configBase, ajustes) {
   const cfg = JSON.parse(JSON.stringify(configBase));
   for (const rama of RAMAS) {
+    if (rama === 'multichat') continue; // se fusiona abajo con proteccion de tokens
     if (ajustes && ajustes[rama] && typeof ajustes[rama] === 'object') {
       cfg[rama] = { ...(cfg[rama] || {}), ...ajustes[rama] };
     }
   }
   if (ajustes && typeof ajustes.prefix === 'string' && ajustes.prefix) cfg.prefix = ajustes.prefix;
+  // multichat: un nivel mas hondo y los tokens ni se miran
+  // (solo los tocan AUTORIZAR-YT.cmd y el propio bot al renovar).
+  if (ajustes && ajustes.multichat && typeof ajustes.multichat === 'object') {
+    cfg.multichat = (cfg.multichat && typeof cfg.multichat === 'object') ? cfg.multichat : {};
+    for (const sub of ['youtube', 'kick']) {
+      const inc = ajustes.multichat[sub];
+      if (inc && typeof inc === 'object') {
+        const base = (cfg.multichat[sub] && typeof cfg.multichat[sub] === 'object') ? cfg.multichat[sub] : {};
+        const mezcla = { ...base };
+        for (const [k, v] of Object.entries(inc)) {
+          if (/token|secret|clave/i.test(k)) continue;
+          mezcla[k] = v;
+        }
+        cfg.multichat[sub] = mezcla;
+      }
+    }
+    for (const [k, v] of Object.entries(ajustes.multichat)) {
+      if (k !== 'youtube' && k !== 'kick') cfg.multichat[k] = v;
+    }
+  }
   return cfg;
 }
 export function guardarCanal(RAIZ, entrada) {

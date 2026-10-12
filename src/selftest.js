@@ -5,6 +5,7 @@
 // y verifica que el bot responde como debe.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Store } from './store.js';
@@ -561,6 +562,103 @@ async function principal() {
   promos.recordatorioJuegos();
   comprobar('Envia el mensaje de juegos', chat.dichos.length === 1, `${chat.dichos.length} mensaje(s)`);
   comprobar('Menciona juegos y comandos', /!(juegos|trivia|ahorcado|ruleta|tema|musicquiz|skin|acciones|subasta|bingo|festero|hype|color|sorteo|dados)/i.test(chat.último()), chat.último().slice(0, 70));
+
+  // ---- 14) multichat YouTube + Kick (sin red) ----
+  console.log(`\n${C.b}14) Multichat YouTube + Kick${C.x}`);
+  const { normalizarYt } = await import('./multichat/youtube.js');
+  const { normalizarKick, limpiarKick, extraerChatPusher, canalPusher, mensajeSuscripcion } = await import('./multichat/kick.js');
+  const { crearPuente, formatearRelay } = await import('./multichat/puente.js');
+  const { manejarMultichat } = await import('./multichat/comandos.js');
+  const { fusionarAjustes, guardarYoutube } = await import('./canales.js');
+
+  const ytItem = { id: 'yt1', snippet: { displayMessage: 'buen set!  ' }, authorDetails: { displayName: 'Luna' } };
+  const ytN = normalizarYt(ytItem);
+  comprobar('Normaliza mensaje de YouTube', ytN.red === 'youtube' && ytN.usuario === 'Luna' && ytN.texto === 'buen set!', JSON.stringify(ytN));
+  comprobar('Limpia emotes de Kick', limpiarKick('[emote:123:Hola] mundo [emote:9:X]') === 'Hola mundo X');
+  const kickN = normalizarKick({ id: 'k1', content: 'temazo!!', sender: { username: 'Koke' } });
+  comprobar('Normaliza mensaje de Kick', kickN.red === 'kick' && kickN.usuario === 'Koke' && kickN.texto === 'temazo!!');
+  const rawPusher = JSON.stringify({ event: 'App\\Events\\ChatMessageEvent', data: JSON.stringify({ id: 'k2', content: 'hola', sender: { username: 'Ana' } }), channel: 'chatrooms.1.v2' });
+  const ext = extraerChatPusher(rawPusher);
+  comprobar('Extrae chat de Pusher', ext && ext.usuario === 'Ana' && ext.texto === 'hola');
+  comprobar('Basura de Pusher se ignora', extraerChatPusher('no-json{{{') === null && extraerChatPusher(JSON.stringify({ event: 'pusher:ping', data: '{}' })) === null);
+  comprobar('Canal Pusher bien formado', canalPusher(123) === 'chatrooms.123.v2');
+  comprobar('Suscripcion Pusher bien formada', (() => { try { const s = JSON.parse(mensajeSuscripcion(123)); return s.event === 'pusher:subscribe' && s.data.channel === 'chatrooms.123.v2'; } catch { return false; } })());
+  comprobar('Formato de relay YT', formatearRelay('youtube', 'Luna', 'hola!') === '[YT] Luna: hola!');
+  comprobar('Formato de relay Kick', formatearRelay('kick', 'Koke', 'temazo') === '[Kick] Koke: temazo');
+  comprobar('Relay largo se corta', formatearRelay('youtube', 'Luna', 'x'.repeat(500)).length <= 401);
+
+  const chatMc = chatFalso();
+  const vistos = [];
+  const puente = crearPuente({
+    canal: 'prueba', tag: '#prueba',
+    config: { multichat: { youtube: { enabled: false }, kick: { enabled: false } } },
+    chat: chatMc,
+    brain: { registrar: (m) => vistos.push(m) },
+    youtube: null, guardarYoutube: async () => {},
+  });
+  const est0 = puente.estado();
+  comprobar('Apagado sin configurar', est0.youtube.fase === 'apagado' && est0.kick.fase === 'apagado');
+  puente.inyectar({ red: 'youtube', usuario: 'Luna', texto: 'hola desde YT', id: 'y1' });
+  comprobar('Relay de YouTube llega a Twitch', chatMc.último() === '[YT] Luna: hola desde YT', chatMc.último().slice(0, 60));
+  comprobar('Relay entra en contexto de la IA', vistos.length === 1 && vistos[0].texto === 'hola desde YT');
+  comprobar('Ultimo de YouTube tracked', puente.estado().youtube.ultimo?.usuario === 'Luna');
+  const rk = await puente.responder('kick', 'hola');
+  comprobar('Responder a Kick dice la verdad', rk.ok === false && /solo lectura/i.test(rk.motivo), rk.motivo);
+  const rNo = await puente.responder('youtube', '   ');
+  comprobar('Respuesta vacia se rechaza', rNo.ok === false);
+  const rSinAuth = await puente.responder('youtube', 'hola');
+  comprobar('Sin autorizar no envia', rSinAuth.ok === false, rSinAuth.motivo);
+  comprobar('fijarVideoYT guarda y limpia', puente.fijarVideoYT('abc123') === 'abc123' && puente.fijarVideoYT('') === '');
+  puente.detener();
+  comprobar('Detener no revienta', true);
+
+  const fusion = fusionarAjustes(
+    { multichat: { youtube: { refreshToken: 'SECRETO', enabled: false } } },
+    { multichat: { youtube: { enabled: true } } }
+  );
+  comprobar('El panel no pisa tokens', fusion.multichat.youtube.refreshToken === 'SECRETO' && fusion.multichat.youtube.enabled === true);
+  const fusionMal = fusionarAjustes(
+    { multichat: { youtube: { refreshToken: 'SECRETO' } } },
+    { multichat: { youtube: { refreshToken: 'HACK', enabled: true } } }
+  );
+  comprobar('Tokens maliciosos del panel se ignoran', fusionMal.multichat.youtube.refreshToken === 'SECRETO');
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-test-'));
+  const g1 = guardarYoutube(tmpDir, 'Prueba', { refreshToken: 'R1' });
+  comprobar('guardaYoutube crea entrada', g1.refreshToken === 'R1');
+  const g2 = guardarYoutube(tmpDir, 'prueba', { videoId: 'vid1' });
+  comprobar('guardaYoutube fusiona sin borrar', g2.refreshToken === 'R1' && g2.videoId === 'vid1');
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+
+  chat.limpiar();
+  await mandar('!multichat');
+  comprobar('!multichat informa (sin puente activo)', /no esta activo|Multichat/i.test(chat.último()), chat.último().slice(0, 70));
+  chat.limpiar();
+  await mandar('!rk hola');
+  comprobar('!rk es honesto', /solo lectura/i.test(chat.último()), chat.último().slice(0, 70));
+  chat.limpiar();
+  await mandar('!ryt hola');
+  comprobar('!ryt sin puente avisa', /no esta activo/i.test(chat.último()), chat.último().slice(0, 70));
+  const chatRt = chatFalso();
+  const puentesFake = {
+    estado: () => ({ youtube: { fase: 'directo', detalle: '', ultimo: { usuario: 'Luna' } }, kick: { fase: 'apagado', detalle: '' } }),
+    responder: async () => ({ ok: true }),
+    fijarVideoYT: () => '',
+  };
+  const baseMsg = { usuario: 'ana', usuarioMin: 'ana', texto: '', esMod: false, esBroadcaster: false };
+  const { manejarMultichat: mm } = await import('./multichat/comandos.js');
+  await mm('ryt', ['hola'], { mensaje: { ...baseMsg, texto: '!ryt hola' }, esMod: false, chat: chatRt, runtime: { puentes: puentesFake } });
+  comprobar('!ryt sin mod avisa', /moderador|streamer/i.test(chatRt.último()), chatRt.último().slice(0, 70));
+  chatRt.limpiar();
+  await mm('ryt', ['hola'], { mensaje: { ...baseMsg, texto: '!ryt hola' }, esMod: true, chat: chatRt, runtime: { puentes: puentesFake } });
+  await new Promise((r) => setTimeout(r, 50));
+  comprobar('!ryt siendo mod envia', /Enviado a YouTube/i.test(chatRt.último()), chatRt.último().slice(0, 70));
+  chatRt.limpiar();
+  await mm('ryt', [], { mensaje: { ...baseMsg, texto: '!ryt' }, esMod: true, chat: chatRt, runtime: { puentes: puentesFake } });
+  comprobar('!ryt sin texto muestra uso', /Uso: !ryt/i.test(chatRt.último()), chatRt.último().slice(0, 70));
+  chat.limpiar();
+  await mandar('!ytvideo', { mod: true });
+  comprobar('!ytvideo sin puente avisa', /no esta activo/i.test(chat.último()), chat.último().slice(0, 70));
   // ---- limpieza ----
   try { fs.unlinkSync(archivoPrueba); } catch { /* da igual */ }
 
